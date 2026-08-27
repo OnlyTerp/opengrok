@@ -1,0 +1,22 @@
+# Local env / secrets — never commit
+.env
+*.env
+!*.example
+*token*
+credentials*
+
+# Logs / runtime state
+*.log
+baseline.json
+shim.log
+llama-relaunch*.log
+
+# OS noise
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Node/Python
+node_modules/
+__pycache__/
+*.pyc

@@ -1,0 +1,22 @@
+{
+  "_source": "box hop :18786/health — transcribed from live VNC screenshot 2026-08-27; refresh via typed channel when needed",
+  "claude-oauth-3": {"configured": true, "keys": false, "upstream": "windows-shim",
+    "shim": "http://YOUR-PC-TAILNET-IP:18776/v1", "socks": "YOUR-PC-TAILNET-IP:1080", "httpProxyFallback": "http://127.0.0.1:8888",
+    "models": ["claude-opus-5-oauth-3", "claude-fable-5-oauth-3"],
+    "thinking": {"type": "adaptive", "display": "summarized"}, "effort": "high (API default, omitted)", "max_tokens_ceiling": 128000},
+  "antigravity-plan": {"configured": true, "keys": false, "upstream": "windows-shim",
+    "shim": "http://YOUR-PC-TAILNET-IP:18778/v1", "socks": "YOUR-PC-TAILNET-IP:1080", "httpProxyFallback": "http://127.0.0.1:8888",
+    "models": ["gemini-3.7-flash", "gemini-3.7-flash-high"],
+    "thinking": {"type": "adaptive", "display": "summarized"},
+    "note": "DIRECT Tailscale primary YOUR-PC-TAILNET-IP:18778; SOCKS/pproxy fallback only. Identity-map only. Never alias 3.7 to 3.6."},
+  "sglang-local": {"configured": true, "keys": false, "upstream": "sglang-local",
+    "shim": "http://YOUR-PC-TAILNET-IP:30000/v1", "aipcShim": "http://YOUR-AIPC-TAILNET-IP:30000/v1",
+    "socks": "YOUR-PC-TAILNET-IP:1080", "httpProxyFallback": "http://127.0.0.1:8888",
+    "models": ["local-qwen38-27b", "local-qwen38-27b-aipc"],
+    "contextWindow": 262144, "contextCap": 245760, "aipcContextWindow": 131072, "aipcContextCap": 28000,
+    "note": "Primary local-qwen38-27b -> Windows 5090 DFlash2 YOUR-PC-TAILNET-IP:30000 (n_ctx 262144). Dedicated local-qwen38-27b-aipc -> AI PC 4090 YOUR-AIPC-TAILNET-IP:30000 (n_ctx 131072)."},
+  "grok-superheavy": {"configured": true, "upstream": "http://YOUR-PC-TAILNET-IP:18779/v1",
+    "models": ["grok-4.6", "grok-4.6-superheavy"],
+    "note": "DIRECT Tailscale, no SOCKS"},
+  "_extra_catalog": ["glm-5.3", "glm-5.3-flash", "deepseek/deepseek-v4-pro-0813", "deepseek/deepseek-v4-pro-0813:thinking", "qwen3.8-max", "mimo-v2.5-pro-ultraspeed", "local-ornith-35b"]
+}

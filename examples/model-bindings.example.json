@@ -1,0 +1,40 @@
+{
+  "_comment": "EXAMPLE bindings — structure only. Never put credentials in this file; hopBaseUrl must be exactly http://127.0.0.1:<port>/v1. provider is audit metadata only.",
+  "agents": {
+    "00000000-0000-4000-8000-000000000001": {
+      "name": "Frontier Agent (subscription lane)",
+      "modelId": "<exact-upstream-slug-with-effort-suffix>",
+      "provider": "my-provider-label",
+      "hopBaseUrl": "http://127.0.0.1:18790/v1",
+      "maxMode": false,
+      "parameters": [
+        { "id": "effort",   "value": "high" },
+        { "id": "thinking", "value": "true" }
+      ]
+    },
+    "00000000-0000-4000-8000-000000000002": {
+      "name": "Fast Lane (thinking-off variant)",
+      "modelId": "<same-slug-fast-variant>",
+      "provider": "my-provider-label",
+      "hopBaseUrl": "http://127.0.0.1:18790/v1",
+      "maxMode": false,
+      "parameters": [
+        { "id": "fast", "value": "true" }
+      ]
+    },
+    "00000000-0000-4000-8000-000000000003": {
+      "name": "DeepSeek Thinking Lane",
+      "modelId": "<vendor>/<model>:thinking",
+      "provider": "deepseek-via-relay",
+      "hopBaseUrl": "http://127.0.0.1:18791/v1",
+      "parameters": []
+    },
+    "00000000-0000-4000-8000-000000000004": {
+      "name": "Local Model (llama.cpp)",
+      "modelId": "<local-alias>",
+      "provider": "local-gpu",
+      "hopBaseUrl": "http://127.0.0.1:30000/v1",
+      "parameters": []
+    }
+  }
+}
