@@ -136,10 +136,12 @@ async function boot(){
   const L=$("#list");
   L.innerHTML=Object.entries(r.agents).map(([id,a])=>{
     const cur=a.modelId||"";
+    const hop=a.hopBaseUrl?(a.hopBaseUrl.match(/:(\d+)/)||[])[1]:null;
+    const lane=hop?`hop :${hop}`:"direct";
     const extra=MODELS.some(m=>m.model===cur)?"":(cur?[{model:cur,route:"saved"}]:[]);
     const opts=[...MODELS,...extra].map(m=>`<option value="${esc(m.model)}" ${m.model===cur?'selected':''} data-r="${esc(m.route)}">${esc(m.model)}</option>`).join("");
     return `<div class=agent data-id="${esc(id)}">
-      <div class=who><div class=nm>${esc(a.name||"(unnamed)")}</div><div class=rt>${esc(id.slice(0,8))}</div></div>
+      <div class=who><div class=nm>${esc(a.name||"(unnamed)")}</div><div class=rt>${esc(lane)}</div></div>
       <div class=pick><select class=model>${opts}</select><span class="pill r" data-pill>${esc(provOf(cur))}</span></div>
       <button class=tbtn data-test>test</button>
     </div>`}).join("");
