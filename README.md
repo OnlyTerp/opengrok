@@ -1,106 +1,130 @@
-# Use ANY Model in Grok Bot — Natively
+<p align="center">
+  <img src="assets/banner.svg" alt="opengrok — run any model in Grok Bot" width="100%">
+</p>
 
-**Drop any AI model into Grok Bot and have it work properly: full intelligence, no wasted tokens, no breakage when Grok Bot updates itself.**
+<h1 align="center"></h1>
 
-This repo contains the reference implementation + field-tested guidelines for adding non-Grok models (Claude, Gemini, DeepSeek, GLM, Qwen, local llama.cpp models — anything OpenAI-compatible) to Grok Bot *without* the usual degradation: dumbed-down answers, runaway token burn, or a silent update nuking your routing overnight.
+<p align="center">
+  <a href="#-quick-start"><img alt="setup" src="https://img.shields.io/badge/setup-one%20command-7c6cff"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-3fb950"></a>
+  <a href="#-the-laws"><img alt="evidence" src="https://img.shields.io/badge/maps-evidence--based-a78bfa"></a>
+  <img alt="deps" src="https://img.shields.io/badge/dependencies-zero-2f81f7">
+  <img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-8b949e">
+</p>
 
-> Born from a production setup running 18 agents across 8+ providers (subscription OAuth lanes, paid APIs, and a local 35B MoE on a 5090). Every guideline here corresponds to a failure we actually hit and locked down.
+<p align="center">
+  <b>Pick a model per agent. Save. It talks native and survives Grok Bot updates.</b><br>
+  Keys never leave your machine. Every wire claim in this repo is probe-verified, not vibed.
+</p>
 
+---
 
-## Quickstart
+<p align="center">
+  <img src="assets/picker.png" alt="the model picker — one dropdown per agent" width="640">
+</p>
+
+## ⚡ Quick start
 
 ```bash
 git clone https://github.com/OnlyTerp/opengrok
 cd opengrok
-python setup.py        # detects your setup, wires everything, opens the picker
+python setup.py
 ```
 
-That's it. Setup asks what it can't detect, verifies live with the doctor,
-and drops you in the picker: one dropdown per agent, pick, save.
+That's the whole install: it detects your Grok Bot install and live services,
+adopts existing bindings or asks 3 questions, writes its config, baselines your
+machine, and opens the picker. Then:
 
-**Already have Grok Bot configured?** setup adopts your existing bindings.
-**Want a provider we haven't mapped?** `tools/wire-probe.py` runs the
-evidence ladder — see CONTRIBUTING.md. **Key-only simple provider?**
-Grok Bot's native BYOK may be enough — see docs/BYOK-DECISION.md.
+1. **pick** a model for each agent in the dropdown
+2. **test** it live (one click, real request)
+3. **save** — done
 
----
+```bash
+python tools/doctor.py        # anytime: is everything still healthy?
+python tools/qa.py            # repo self-check: leaks, refs, tests
+```
 
----
+## 🤖 What it gives each model
 
-## Why foreign models feel "dumb" in Grok Bot (and why it's not the model)
+Dropping a foreign model into Grok Bot usually "works" and feels *off* — slower,
+dumber, token-hungry. That's harness mismatch: the model was RL-trained on its
+own harness's wire shape, and gets a generic prompt shape plus wrong reasoning
+knobs. opengrok fixes the wire:
 
-A third-party model behaves **natively** only when BOTH layers are replicated:
-
-| Layer | Meaning | What breaks without it |
+| Model family | What goes wrong vanilla | What opengrok does |
 |---|---|---|
-| **Wire fidelity** | The request carries fields in the provider's OWN dialect (`thinking`, `reasoning_effort`, tiered slugs...) | Fields silently dropped or SDK TypeErrors mid-run; reasoning degraded or missing |
-| **Client identity** | Requests carry a trusted session (OAuth JWT / CLI headers), not a bare BYOK key | Provider treats you as a stranger: throttling, degraded routing, auth churn |
+| **Grok (xAI)** | effort knob is `xhigh`, not `max`; `fast` has no field | literal token mapping, always-on reasoning documented |
+| **GLM (Zhipu)** | thinks by default — silence is *expensive*; `max` is real | verified token table + true off-switch via `thinking:disabled` |
+| **Claude** | thinking is owned by the auth shim; body-painting it 400s | shim-owned thinking, effort passes clean |
+| **Gemini** | "fast" was decorative — the knob is the *slug*, not a field | fast lane rerouting, measured 1.5s → 0.9s first token |
+| **DeepSeek** | thinking lives in the model slug, not the body | slug-owns-thinking mapping |
+| **local models** | context/recovery edges | dedicated route, fail-closed |
 
-Add a third killer that isn't about the model at all:
+Every row of that table is backed by a capture in `docs/MODEL-GUIDELINES.md`.
 
-| Killer | What happens | Fix in this repo |
-|---|---|---|
-| **Harness mismatch** | Model RL-trained on ITS OWN harness gets a generic prompt shape and flails ("dumber than its benchmarks") | Per-provider wire maps (`tools/provider-maps.cjs`) |
-| **Silent updates** | App self-updates, replaces your patched host/bindings with stock | Doctor + SHA baselines + attestation pattern (`tools/doctor.py`) |
+## 🧩 How it fits together
+
+```
+ Grok Bot agent
+      │  modelId + parameters (thinking/effort/fast)
+      ▼
+ provider-maps ──► per-provider wire truth (verified, versioned, tested)
+      │
+      ▼
+ upstream (xAI / Zhipu / Anthropic / Google / DeepSeek / local llama.cpp)
+```
+
+**Two contracts, one story:**
+- `provider-maps.cjs` — Contract A: direct body maps (client-side lanes)
+- `provider-maps-hop.cjs` — Contract B: `applyHarnessControls()` for hop lanes — this is what ships on the box
+
+## 🛡️ Update-proof by design
+
+Grok Bot updates silently rewrite its bundle. Instead of hoping:
+
+- `doctor.py` **baselines your machine** on setup and watches files, services,
+  and caches — after any update it tells you *exactly what moved*
+- `--quiet` mode stays silent when clean (cron-friendly), complains only on drift
+- maps hot-reload; no restart needed to fix a route
+
+## 📚 The laws
+
+Hard-won rules this repo encodes — each one earned by a real failure:
+
+- **Evidence or it doesn't ship.** No map lands without a wire capture (`tools/wire-probe.py`).
+- **200-accepted ≠ honored.** A field that 200s and does nothing is worse than a 400. Behavior-prove every knob.
+- **Silence is not cheap.** Several providers think by default; a bare request burns reasoning tokens.
+- **Shared connection pools break under load; fresh-connection-per-call triggers throttling.** Thread-local keep-alive or nothing.
+- **Fail-closed over fake success.** If a control can't be expressed on the wire, document the noop — never pretend.
+
+## 🧪 Testing (how we know it's true)
+
+```bash
+node tools/test-provider-maps.cjs       # 23/23 — Contract A
+node tools/test-provider-maps-hop.cjs   #  6/6 — Contract B
+python tools/qa.py                      # leak scan, ref integrity, suites
+```
+
+The QA tool is itself negative-control-tested: plant a fake key or break a file
+and it **fails loudly** — a green that can't fail is decoration.
+
+## ➕ Adding a provider
+
+```bash
+python tools/wire-probe.py --base https://api.example.com/v1   --model their-model --key-env THEIR_API_KEY
+```
+
+Run it, paste the verdict into a PR. `CONTRIBUTING.md` has the contract —
+**no capture, no merge.**
+
+## 🗺️ Status
+
+- ✅ Working today: Grok, GLM, Claude plans, Gemini (incl. fast lane), DeepSeek, local llama.cpp
+- 🧪 Pattern proven, capture pending: OpenRouter, Groq, Mistral, xAI OAuth
+- 📄 Docs: [MODEL-GUIDELINES](docs/MODEL-GUIDELINES.md) · [BYOK vs hop](docs/BYOK-DECISION.md) · [FAILURE-MODES](docs/FAILURE-MODES.md) · [ROADMAP](docs/ROADMAP.md)
 
 ---
 
-## Quickstart (3 minutes)
-
-```
-1. Clone this repo.
-2. Run the doctor against YOUR machine to see what's live:
-       python tools/doctor.py
-3. Copy your provider credentials into environment variables
-       (NEVER into binding files — see docs/MODEL-GUIDELINES.md §Secrets).
-4. Add your model as an agent entry — follow:
-       examples/model-bindings.example.json
-5. Wire provider-specific behavior (if any) per:
-       docs/MODEL-GUIDELINES.md §Wire maps
-6. Test with the one-liner smoke in docs/TESTING.md, then set up the
-   watchdog cron so updates can't silently wreck things.
-```
-
-Full walkthrough: **[docs/MODEL-GUIDELINES.md](docs/MODEL-GUIDELINES.md)** · Failure encyclopedia: **[docs/FAILURE-MODES.md](docs/FAILURE-MODES.md)**
-
----
-
-## Repo layout
-
-```
-tools/
-  provider-maps.cjs     # Contract A: harness params -> provider wire fields (direct body maps)
-  test-provider-maps.cjs# Contract A test suite (node, zero deps)
-  provider-maps-hop.cjs # Contract B: applyHarnessControls() for hop lanes — route table
-                        #   + audit shape; this is what ships ON the Grok Bot box
-  test-provider-maps-hop.cjs # Contract B test suite
-  hop-server.py         # Generic Bearer-injecting hop shim (SSE-streaming safe)
-  doctor.py             # Health/drift/update-survival checks; cron-friendly, silent-when-clean
-examples/
-  model-bindings.example.json
-docs/
-  MODEL-GUIDELINES.md   # THE guide: making any model work properly + token discipline
-  FAILURE-MODES.md      # Every known failure mode, how it bites, and its lock
-  TESTING.md            # Positive/negative control discipline (how not to fool yourself)
-```
-
-## The 5 non-negotiable laws (full list in docs/)
-
-1. **Unknown wire = leave it alone.** Never fabricate a passthrough for fields you haven't verified on the wire. Ship stubs, not guesses.
-2. **Secrets never ride config files.** Bindings get port + slug only; credentials live in env / OS stores behind a hop shim.
-3. **Every green needs a proven red.** A test suite that cannot fail proves nothing. Break something on purpose, watch detection fire, restore, confirm silence.
-4. **Verify effects, not exit codes.** Especially on Windows shells: a command can exit 0 while doing literally nothing.
-5. **Pin what must not move.** Any file whose change means "someone updated/replaced my stack" gets a recorded SHA baseline + periodic check.
-
-## Status
-
-| Piece | State |
-|---|---|
-| provider maps (grok/claude/gemini/deepseek) | ✅ shipped, 17/17 tests |
-| unknown providers (glm/qwen/mimo/local) | honest stubs — verified facts only |
-| hop shim | ✅ streaming verified end-to-end incl. negative control |
-| doctor + update-survival kit | ✅ running in production, every-30-min cron |
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+<p align="center">
+  <sub><b>not farming you, arming you.</b></sub>
+</p>

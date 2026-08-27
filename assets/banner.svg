@@ -1,0 +1,34 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="opengrok — run any model in Grok Bot">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d0d12"/>
+      <stop offset="1" stop-color="#15121f"/>
+    </linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#7c6cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" rx="18" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1199" height="299" rx="18" fill="none" stroke="#2a2a35"/>
+
+  <text x="70" y="118" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="64" font-weight="800" fill="#e6e6ea">open<tspan fill="url(#acc)">grok</tspan></text>
+  <text x="72" y="162" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="24" fill="#9a9aad">run any model in Grok Bot — natively, and update-proof</text>
+
+  <!-- pipeline strip: pick -> map -> wire -> survives updates -->
+  <g font-family="Consolas, Menlo, monospace" font-size="17">
+    <rect x="72"  y="200" width="210" height="46" rx="10" fill="#1a1a22" stroke="#33334a"/>
+    <text x="177" y="229" text-anchor="middle" fill="#c9c4ff">pick a model</text>
+    <text x="305" y="229" text-anchor="middle" fill="#55556a">→</text>
+    <rect x="330" y="200" width="210" height="46" rx="10" fill="#1a1a22" stroke="#33334a"/>
+    <text x="435" y="229" text-anchor="middle" fill="#c9c4ff">wire map applies</text>
+    <text x="563" y="229" text-anchor="middle" fill="#55556a">→</text>
+    <rect x="588" y="200" width="210" height="46" rx="10" fill="#1a1a22" stroke="#33334a"/>
+    <text x="693" y="229" text-anchor="middle" fill="#c9c4ff">talks native</text>
+    <text x="821" y="229" text-anchor="middle" fill="#55556a">→</text>
+    <rect x="846" y="200" width="230" height="46" rx="10" fill="#17160f" stroke="#4a4633"/>
+    <text x="961" y="229" text-anchor="middle" fill="#d8d8a0">survives updates</text>
+  </g>
+
+  <text x="70" y="278" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" fill="#666678">keys stay on your machine · evidence-based maps · one command to start</text>
+</svg>
