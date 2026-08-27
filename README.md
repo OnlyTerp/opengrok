@@ -1,8 +1,19 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="opengrok — run any model in Grok Bot" width="100%">
+  <a href="#"><img src="assets/appmock.png" alt="Grok Bot with every agent on a different model" width="420"></a>
 </p>
 
-<h1 align="center"></h1>
+<h1 align="center">open·grok</h1>
+
+<p align="center"><em>one model per agent — pick, test, save. keys stay on your machine.</em></p>
+
+<p align="center">
+  <a href="#-quick-start"><img src="https://img.shields.io/badge/setup-one%20command-7c6cff" alt="setup"></a>
+  <img src="https://img.shields.io/badge/license-MIT-3fb950" alt="MIT">
+  <img src="https://img.shields.io/badge/maps-evidence--based-a78bfa" alt="evidence-based">
+  <img src="https://img.shields.io/badge/dependencies-zero-2f81f7" alt="zero deps">
+</p>
+
+---<h1 align="center"></h1>
 
 <p align="center">
   <a href="#-quick-start"><img alt="setup" src="https://img.shields.io/badge/setup-one%20command-7c6cff"></a>

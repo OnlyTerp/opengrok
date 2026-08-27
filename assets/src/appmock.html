@@ -1,0 +1,55 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; font-family:-apple-system,'Segoe UI',system-ui,sans-serif; }
+  .app { width:440px; background:#0d0d0d; border:1px solid #26262a; border-radius:18px; overflow:hidden; padding:14px 12px 10px; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:2px 6px 12px; }
+  .topbar .plus { color:#8a8f98; font-size:22px; font-weight:300; }
+  .search { display:flex; align-items:center; gap:8px; background:#1a1a1c; border-radius:12px; padding:9px 12px; margin:0 4px 14px; color:#7a7f87; font-size:14px; }
+  .search svg { flex:none; }
+  .heads { display:flex; gap:26px; padding:2px 10px 16px; }
+  .head { text-align:center; }
+  .head .lbl { margin-top:6px; font-size:12px; color:#8a8f98; max-width:76px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .blob { position:relative; }
+  .row { display:flex; align-items:center; gap:12px; padding:11px 12px; border-radius:14px; margin:0 2px; }
+  .row.active { background:#1c1c1f; }
+  .meta { flex:1; min-width:0; }
+  .l1 { display:flex; align-items:center; gap:8px; }
+  .name { color:#e8eaed; font-size:15.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .badge { flex:none; background:#2c2e33; color:#b8bcc2; font-size:11px; padding:2px 8px; border-radius:99px; font-weight:600; letter-spacing:.2px; }
+  .time { flex:none; color:#6b7078; font-size:12.5px; }
+  .prev { color:#7a7f87; font-size:13.5px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .plug { display:flex; align-items:center; gap:12px; padding:12px 14px 6px; color:#c9cdd3; font-size:15px; font-weight:600; }
+  .plug .ic { width:34px; height:34px; border-radius:50%; background:#1c1c1f; display:flex; align-items:center; justify-content:center; color:#8a8f98; }
+</style></head>
+<body>
+<div class="app" id="app">
+  <div class="topbar"><span></span><span class="plus">+</span></div>
+  <div class="search">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7a7f87" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    Search
+  </div>
+  <div class="heads" id="heads"></div>
+  <div id="rows"></div>
+  <div class="plug"><span class="ic">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v4M8 7h8v3a4 4 0 0 1-8 0V7zM12 14v7"/></svg>
+  </span>Plugins</div>
+</div>
+<script>
+function blob(c, s){ return `<div class="blob" style="width:${s}px;height:${s}px;background:${c};border-radius:46% 54% 52% 48% / 44% 46% 54% 56%;"><div style="position:absolute;left:26%;top:32%;width:11%;height:30%;background:#101012;border-radius:99px;"></div><div style="position:absolute;left:62%;top:32%;width:11%;height:30%;background:#101012;border-radius:99px;"></div></div>`; }
+const heads=[["#3b82f6","Grok 4.6"],["#10b981","Qwen 27B"]];
+document.getElementById('heads').innerHTML = heads.map(h=>`<div class="head">${blob(h[0],64)}<div class="lbl">${h[1]}</div></div>`).join('');
+const rows=[
+ ["#3b82f6","everyday driver","Grok","9:28 AM","morning brief ready — stream ammo + market map",1],
+ ["#8b5cf6","deep work","Opus","9:12 AM","wire map refactored — 23/23 tests green",0],
+ ["#06b6d4","quick chat","Gemini","8:57 AM","flash lane live · 0.78s first token",0],
+ ["#10b981","local sandbox","Qwen","8:40 AM","27B on the 5090 — zero tokens burned",0],
+ ["#a78bfa","budget brain","DeepSeek","Sun","v4-pro thinking lane — cheap and deep",0],
+ ["#ec4899","code review","GLM","Sat","5.3 flagged two edge cases — patching now",0],
+ ["#6b7280","night shift","Sol","Sat","queued 3 PRs — full report at 6am",0],
+];
+document.getElementById('rows').innerHTML = rows.map(r=>
+ `<div class="row${r[5]?' active':''}">${blob(r[0],42)}<div class="meta"><div class="l1"><span class="name">${r[1]}</span><span class="badge">${r[2]}</span><span style="flex:1"></span><span class="time">${r[3]}</span></div><div class="prev">${r[4]}</div></div></div>`).join('');
+</script>
+</body></html>
