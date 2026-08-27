@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """grok-native doctor — find every failure point BEFORE it bites.
 
-Checks (each maps to a registered failure mode in
-~/grok-native-integration-map.md §6):
+Checks (each maps to a registered failure mode in docs/FAILURE-MODES.md, F01–F18):
 
   SERVICES      expected listening sockets + identity probes
   AUTH/BINDING  model-bindings.json integrity (count, names, SHA drift)
@@ -24,6 +23,9 @@ Modes:
 from __future__ import annotations
 
 import json
+import os
+import platform
+import re
 import socket
 import subprocess
 import sys
@@ -36,10 +38,31 @@ HERE = Path(__file__).resolve().parent          # tools/
 HOME = Path.home()
 BASE_DIR = HERE.parent                       # repo root (portable; baseline lives with the repo)
 BASELINE = BASE_DIR / "baseline.json"
-FALLBACK_STATE = HOME / ".terp" / "grok-native"   # legacy state dir if baseline missing here
-STARTUP = HOME / "AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup"
-HERMES_CFG = HOME / "AppData/Local/hermes/config.yaml"
-BINDINGS = HOME / ".grokbot/model-bindings.json"
+STARTUP = Path(os.environ.get("APPDATA", str(HOME / "AppData" / "Roaming"))) / \
+    "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+
+def _first_existing(candidates: list[str]) -> Path:
+    for c in candidates:
+        if c:
+            p = Path(c).expanduser()
+            if p.exists():
+                return p
+    return Path(candidates[0]).expanduser() if candidates[0] else Path(candidates[-1]).expanduser()
+
+# Hermes config.yaml — Windows default first, then common Unix locations.
+HERMES_CFG = _first_existing([
+    str(Path(os.environ.get("LOCALAPPDATA", str(HOME / "AppData" / "Local"))) / "hermes" / "config.yaml"),
+    str(HOME / ".config" / "hermes" / "config.yaml"),
+    str(HOME / ".hermes" / "config.yaml"),
+])
+# Bindings — same candidate shapes setup.py writes/adopts (first existing wins).
+BINDINGS_CANDIDATES = [HOME / ".grokbot" / "model-bindings.json"]
+for _appdir in (HOME / "AppData" / "Roaming" / "Grok Bot",
+                HOME / ".config" / "Grok Bot",
+                HOME / "Library" / "Application Support" / "Grok Bot"):
+    BINDINGS_CANDIDATES.append(_appdir / "model-bindings.json")
+BINDINGS_CANDIDATES.append(BASE_DIR / "model-bindings.json")
+BINDINGS = next((p for p in BINDINGS_CANDIDATES if p.exists()), BINDINGS_CANDIDATES[0])
 
 # --- service expectations -------------------------------------------------
 # (port, name, probe) probe=None -> TCP-only; fn -> callable returning (bool,str)
@@ -87,7 +110,6 @@ if not SERVICES_CFG:  # fallback: our production table (kept so doctor works out
         (18779, "grok-shim",         lambda: probe_url("http://127.0.0.1:18779/health")),
         (30000, "llama-server slot",  lambda: probe_url("http://127.0.0.1:30000/v1/models", '"models"')),  # identity-agnostic: slot serves qwen/ornith per season; body must be a models list
     ]
-EXPECTED_DOWN_NOTE = "expected-down baseline ports: 8090/8091/8092/8791"
 
 WATCHED_FILES = [BINDINGS]
 WATCHED_CFG = next((p for p in SERVICES_CFG_CANDIDATES if (p.parent / "watched-files.json").exists()), None)
@@ -99,8 +121,16 @@ except Exception:
 for _p in [HERE / "provider-maps.cjs", HERE / "test-provider-maps.cjs",
            HERE / "provider-maps-hop.cjs", HERE / "test-provider-maps-hop.cjs"]:   # repo's own maps always watched
     if _p.exists() and _p not in WATCHED_FILES: WATCHED_FILES.append(_p)
-PERSISTENCE_VBS = ["claude-shim.vbs", "codex-shim.vbs", "antigravity-shim.vbs",
-                   "hermes-hop.vbs", "start_gmsg_daemon.vbs", "start_sms_lane.vbs"]
+PERSISTENCE_DEFAULT = ["claude-shim.vbs", "codex-shim.vbs", "antigravity-shim.vbs",
+                       "hermes-hop.vbs", "start_gmsg_daemon.vbs", "start_sms_lane.vbs"]
+PERSISTENCE = PERSISTENCE_DEFAULT
+if SERVICES_CFG:
+    try:
+        _pers = json.loads(SERVICES_CFG.read_text(encoding="utf-8")).get("persistence")
+        if isinstance(_pers, list) and _pers:
+            PERSISTENCE = [str(x) for x in _pers]   # setup.py recorded YOUR launchers
+    except Exception:
+        pass
 
 results: list[tuple[str, str, str]] = []  # level, tag, detail
 def emit(level: str, tag: str, detail: str) -> None:
@@ -139,16 +169,22 @@ def check_bindings() -> dict:
     except Exception as exc:
         emit("FAIL", "bindings:parse", repr(exc))
         return meta
-    if not tcp(18790):
-        emit("FAIL", "bindings:liveness-coupling", "18790 dead while hermes binding staged")
+    # liveness coupling: only hops doctor is EXPECTED to monitor. Remote/box
+    # hops (live elsewhere) must not be flagged. A binding pointing at a DOWN
+    # local hop that doctor owns IS a real outage.
+    expected_ports = {p for p, _n, _pr in EXPECTED_UP}
+    txt = BINDINGS.read_text(encoding="utf-8")
+    for port in sorted({int(m.group(1)) for m in re.finditer(r"127\.0\.0\.1:(\d+)", txt)}):
+        if port in expected_ports and not tcp(port):
+            emit("FAIL", "bindings:liveness-coupling", f":{port} bindings route here but NOT LISTENING")
     return meta
 
 def check_config() -> dict:
-    import re
     txt = HERMES_CFG.read_text(encoding="utf-8") if HERMES_CFG.exists() else ""
     flags: dict = {}
     if not txt:
-        emit("FAIL", "config", "config.yaml unreadable")
+        # Optional component: not everyone runs Hermes. WARN, never FAIL.
+        emit("WARN", "config", f"hermes config.yaml not found ({HERMES_CFG})")
         return flags
     # discover_models flips (flood guard) — crude block scan keeps deps zero
     for block in re.split(r"\n(?=\S)", txt):
@@ -162,7 +198,7 @@ def check_config() -> dict:
     return flags
 
 def check_grok_cache() -> dict:
-    p = Path("C:/Users/User/.grok/models_cache.json")
+    p = HOME / ".grok" / "models_cache.json"
     info: dict = {}
     if not p.exists():
         emit("WARN", "grok-cache", "models_cache.json missing")
@@ -184,7 +220,12 @@ def check_grok_cache() -> dict:
     return info
 
 def check_persistence() -> None:
-    for vbs in PERSISTENCE_VBS:
+    if platform.system() != "Windows":
+        # VBS launchers are the Windows persistence shape; other OSes use
+        # systemd/launchd units (out of scope for the built-in table).
+        emit("WARN", "startup:vbs", f"persistence checks are Windows-VBS only (this is {platform.system()})")
+        return
+    for vbs in PERSISTENCE:
         ok = (STARTUP / vbs).exists()
         emit("PASS" if ok else "WARN", "startup:vbs", f"{vbs} {'present' if ok else 'MISSING'}")
 
@@ -195,7 +236,7 @@ def try_fix(dead_names: list[str]) -> None:
         "antigravity-shim": ["cscript", "//nologo", str(STARTUP / "antigravity-shim.vbs")],
     }
     if "claude-shim" in dead_names:
-        rd = Path("C:/Users/User/.terp/claude-shim")
+        rd = HOME / ".terp" / "claude-shim"
         if (rd / "restart-shim.py").exists():
             r = subprocess.run([sys.executable, "restart-shim.py"], cwd=rd,
                                capture_output=True, text=True, timeout=240)
