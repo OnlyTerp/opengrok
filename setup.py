@@ -60,10 +60,12 @@ def find_grokbot():
     return None
 
 def detect_hop_binding(gb_dir):
-    """If a model-bindings.json already exists anywhere sensible, adopt it."""
-    for p in [gb_dir / "model-bindings.json" if gb_dir else None,
-              HERE.parent / "model-bindings.json",
-              HERE / "model-bindings.json"]:
+    """If a model-bindings.json already exists somewhere sensible, adopt it.
+    Sensible = beside the detected Grok Bot dir, or in HOME/.grokbot. A stray
+    file in the current directory is NOT adopted (cwd leftovers would hijack)."""
+    cands = [gb_dir / "model-bindings.json" if gb_dir else None,
+             Path.home() / ".grokbot" / "model-bindings.json"]
+    for p in cands:
         try:
             if p and p.is_file():
                 d = json.loads(p.read_text(encoding="utf-8"))
@@ -77,7 +79,7 @@ def say(color, tag, msg): print(f"{C[color]}[{tag}]{C['0']} {msg}")
 def head(t): print(f"\n{C['B']}── {t} {'─'*max(0,58-len(t))}{C['0']}")
 
 def main():
-    print(f"{C['B']}grokbot-any-model — setup{C['0']}")
+    print(f"{C['B']}opengrok — setup{C['0']}")
     plan, acts = [], []
 
     # ---------- 1. DETECT ----------

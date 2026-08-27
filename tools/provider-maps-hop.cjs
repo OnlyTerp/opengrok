@@ -219,7 +219,7 @@ function applyHarnessControls(input) {
 
   if (route === "glm-coding-plan") {
     // Z.ai wire facts LIVE-VERIFIED 2026-08-27 (7-probe capture, glm-5.3-flash,
-    // open.bigmodel.cn/api/coding/paas/v4 — see grokbot-any-model docs):
+    // open.bigmodel.cn/api/coding/paas/v4 — see opengrok docs):
     //   - bare requests THINK BY DEFAULT (~high) — silence is not cheap
     //   - reasoning_effort accepts literal low|medium|high|max (max is real)
     //   - thinking:{type:"disabled"} is a TRUE off-switch → fast maps to it

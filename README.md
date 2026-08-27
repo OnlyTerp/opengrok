@@ -10,8 +10,8 @@ This repo contains the reference implementation + field-tested guidelines for ad
 ## Quickstart
 
 ```bash
-git clone https://github.com/OnlyTerp/grokbot-any-model
-cd grokbot-any-model
+git clone https://github.com/OnlyTerp/opengrok
+cd opengrok
 python setup.py        # detects your setup, wires everything, opens the picker
 ```
 
