@@ -1,0 +1,66 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:1200px; height:600px; overflow:hidden;
+         font-family:'Segoe UI', system-ui, -apple-system, sans-serif; }
+  .hero { position:relative; width:1200px; height:600px;
+          background:radial-gradient(900px 500px at 18% -10%, #1c1533 0%, rgba(28,21,51,0) 55%),
+                     linear-gradient(135deg, #0d0c18 0%, #141126 60%, #17132b 100%); }
+  .grid { position:absolute; inset:0;
+          background-image:linear-gradient(rgba(124,108,255,.045) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(124,108,255,.045) 1px, transparent 1px);
+          background-size:48px 48px;
+          -webkit-mask-image:radial-gradient(80% 90% at 50% 40%, #000 30%, transparent 100%); }
+  .left { position:absolute; left:72px; top:88px; width:600px; }
+  .brand { font-size:78px; font-weight:800; letter-spacing:-0.03em; color:#e9e9f2; line-height:1; }
+  .brand .g { background:linear-gradient(92deg,#a78bfa 0%, #7c6cff 55%, #6a5be0 100%);
+              -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .tag { margin-top:16px; font-size:23px; color:#a3a3bd; }
+  .tag b { color:#d6d6e6; font-weight:600; }
+  .pipe { display:flex; align-items:center; gap:8px; margin-top:44px;
+          font-family:Consolas, Menlo, monospace; font-size:15px; }
+  .pill { padding:10px 15px; border-radius:11px; background:rgba(26,26,34,.85);
+          border:1px solid #34334a; color:#c9c4ff; white-space:nowrap; }
+  .pill.gold { background:rgba(35,32,14,.85); border-color:#4a4633; color:#d8d8a0; }
+  .arr { color:#55556a; font-size:15px; }
+  .sub { margin-top:42px; font-size:17px; color:#8f8fae; }
+  .sub .dot { color:#5f5f80; margin:0 10px; }
+  .motto { position:absolute; left:72px; bottom:46px; display:flex; align-items:center; gap:14px; }
+  .motto .bar { width:46px; height:5px; border-radius:3px;
+                background:linear-gradient(90deg,#a78bfa,#7c6cff); }
+  .motto .t { font-size:19px; font-weight:600; color:#dcdce8; }
+  .motto .u { font-family:Consolas, Menlo, monospace; font-size:14.5px; color:#6c6c8c; margin-left:8px; }
+  .shot { position:absolute; right:88px; top:64px; width:330px; }
+  .glow { position:absolute; inset:-38px; border-radius:36px;
+          background:radial-gradient(closest-side, rgba(124,108,255,.28), rgba(124,108,255,.10) 55%, transparent 75%);
+          filter:blur(6px); z-index:0; }
+  .frame { position:relative; z-index:1; border-radius:20px; overflow:hidden;
+           border:1px solid #2c2b40;
+           box-shadow:0 34px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.08); }
+  .frame img { display:block; width:330px; }
+</style></head>
+<body>
+<div class="hero">
+  <div class="grid"></div>
+  <div class="left">
+    <div class="brand">open<span class="g">·grok</span></div>
+    <div class="tag">run <b>any model</b> in Grok Bot — natively, and update-proof</div>
+    <div class="pipe">
+      <span class="pill">pick a model</span><span class="arr">→</span>
+      <span class="pill">wire map</span><span class="arr">→</span>
+      <span class="pill">talks native</span><span class="arr">→</span>
+      <span class="pill gold">survives updates</span>
+    </div>
+    <div class="sub">keys stay on your machine<span class="dot">·</span>evidence-based maps<span class="dot">·</span>one command to start</div>
+  </div>
+  <div class="motto">
+    <span class="bar"></span><span class="t">not farming you, arming you.</span>
+    <span class="u">github.com/OnlyTerp/opengrok</span>
+  </div>
+  <div class="shot">
+    <div class="glow"></div>
+    <div class="frame"><img src="../appmock.png"></div>
+  </div>
+</div>
+</body></html>

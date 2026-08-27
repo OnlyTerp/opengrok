@@ -1,10 +1,6 @@
 <p align="center">
-  <img src="assets/appmock.png" alt="Grok Bot with every agent on a different model" width="400">
+  <img src="assets/hero.png" alt="open·grok — run any model in Grok Bot: one model per agent, pick, test, save. keys stay on your machine. pick a model → wire map applies → talks native → survives updates" width="100%">
 </p>
-
-<h1 align="center">open·grok</h1>
-
-<p align="center"><em>one model per agent — pick, test, save. keys stay on your machine.</em></p>
 
 <p align="center">
   <a href="#-quick-start"><img alt="setup" src="https://img.shields.io/badge/setup-one%20command-7c6cff"></a>
