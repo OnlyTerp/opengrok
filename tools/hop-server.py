@@ -23,7 +23,7 @@ Env:
                      %LOCALAPPDATA%/hermes/.env "API_SERVER_KEY=..." line)
 
 Run persistence (matches sibling shims):
-  Startup .vbs calling:  pythonw C:/Users/User/.terp/hermes-hop/server.py
+  Startup .vbs calling:  pythonw <your-hop-dir>/hop-server.py
 """
 from __future__ import annotations
 

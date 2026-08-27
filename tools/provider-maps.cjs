@@ -1,7 +1,7 @@
 "use strict";
 /*
  * Provider maps: Grok Bot harness control plane -> upstream wire fields.
- * Used by openai-hop-session.cjs (see PATCHES.md 3c).
+ * Loaded hot by the host session shim; hot-reload safe (require-cache bust).
  *
  * Grok (xAI) is IMPLEMENTED. Claude / Gemini / Qwen are explicit TODO stubs that
  * leave upstream defaults untouched (never ship half-maps; do not fabricate a
@@ -133,7 +133,7 @@ function applyProviderReasoningControls(body, ctx) {
 
 /*
  * GLM (Zhipu bigmodel.cn CODING endpoint) — VERIFIED LIVE 2026-08-27,
- * 7-probe capture vs glm-5.3-flash (~/.terp/glm-wire/glm-capture/).
+ * 7-probe capture vs glm-5.3-flash (wire-captures/glm-5.3-flash/).
  * Verified: top-level thinking:{type:enabled|disabled} + reasoning_effort in
  * {low,medium,high,max} all accepted; BARE requests think by default (~high);
  * thinking:disabled is a TRUE off-switch; "max" is a valid GLM token.

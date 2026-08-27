@@ -1,7 +1,7 @@
 "use strict";
 /**
  * Harness → provider wire maps for Grok Bot hop specialists.
- * Contract: /home/box/sand-data/docs/harness-shim-parity-checklist-20260822.md §4.2
+ * Contract: harness-shim parity checklist §4.2 — applyHarnessControls(body, {modelId, provider, maxMode, parameters}) -> {body, route, applied, unknownIds}.
  *
  * Harness control plane (same ids as native RequestedModel.parameters):
  *   thinking: "true" | "false"
