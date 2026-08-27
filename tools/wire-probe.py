@@ -64,6 +64,7 @@ def main():
         try:
             code, resp, ms = call(a.base, a.model, key, body)
             s = summarize(resp)
+            s["_status"] = code
             log.append({"probe": tag, "label": label, "sent": body, "status": code, "ms": ms, "summary": s, "resp": resp})
             print(f"{tag}: {label:34} status={code} finish={s['finish']} reasoning_tok={s['reasoning_tokens']} content={s['content'][:30]!r}")
             return s
@@ -104,9 +105,9 @@ def main():
     (outdir / "capture.json").write_text(json.dumps(log, indent=2), encoding="utf-8")
     verdict = {
         "model": a.model, "base": a.base, "when": time.strftime("%Y-%m-%d %H:%M"),
-        "thinks_by_default": bool(s1 and (s1["reasoning_tokens"] or 0) > 0 or s1["has_reasoning_content"]),
+        "thinks_by_default": bool(s1 and ((s1["reasoning_tokens"] or 0) > 0 or s1["has_reasoning_content"])),
         "off_switch_works": bool(s6 and not (s6["reasoning_tokens"] or 0) and not s6["has_reasoning_content"]),
-        "effort_tokens_accepted": [t for t, s in [("low",s2),("high",s3),("max",s4),("medium",s5),("xhigh",s7)] if s and s["status"] == 200],
+        "effort_tokens_accepted": [t for t, s in [("low",s2),("high",s3),("max",s4),("medium",s5),("xhigh",s7)] if s and s.get("_status") == 200],
         "capture": f"wire-captures/{slug}/capture.json",
     }
     (outdir / "verdict.json").write_text(json.dumps(verdict, indent=2), encoding="utf-8")

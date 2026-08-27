@@ -1,0 +1,14 @@
+{
+  "model": "glm-5.3-flash",
+  "base": "https://open.bigmodel.cn/api/coding/paas/v4",
+  "when": "2026-08-26 22:10",
+  "thinks_by_default": true,
+  "off_switch_works": true,
+  "effort_tokens_accepted": [
+    "low",
+    "high",
+    "max",
+    "medium"
+  ],
+  "capture": "wire-captures/glm-5.3-flash/capture.json"
+}

@@ -1,0 +1,355 @@
+[
+  {
+    "probe": "P0",
+    "label": "models endpoint",
+    "sent": null,
+    "status": 200,
+    "models": [
+      "glm-4.5",
+      "glm-4.5-air",
+      "glm-4.6",
+      "glm-4.7",
+      "glm-5",
+      "glm-5-turbo",
+      "glm-5.1",
+      "glm-5.2",
+      "glm-5.3",
+      "glm-5.3-flash"
+    ],
+    "note": "slug glm-5.3-flash PRESENT"
+  },
+  {
+    "probe": "P1",
+    "label": "bare minimal",
+    "sent": {
+      "model": "glm-5.3-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly WIRE_OK and nothing else."
+        }
+      ]
+    },
+    "status": 200,
+    "summary": {
+      "finish": "stop",
+      "content": "WIRE_OK",
+      "has_reasoning_content": true,
+      "reasoning_len": 363,
+      "reasoning_tokens": 78,
+      "completion_tokens": 83,
+      "thinking_echoed": null,
+      "other_msg_keys": []
+    },
+    "resp": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "WIRE_OK",
+            "reasoning_content": "The user is asking me to reply with exactly \"WIRE_OK\" and nothing else. This seems like a test message, perhaps to verify connectivity or test a specific protocol/format. It's a harmless request - just echoing back a specific string.\n\nI should comply exactly as requested: reply with only \"WIRE_OK\" and nothing else. No period, no explanation, no additional text.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1787796585,
+      "id": "20260827100942d5035fcee3244cd4",
+      "model": "glm-5.3-flash",
+      "object": "chat.completion",
+      "request_id": "20260827100942d5035fcee3244cd4",
+      "usage": {
+        "completion_tokens": 83,
+        "completion_tokens_details": {
+          "reasoning_tokens": 78
+        },
+        "prompt_tokens": 22,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 105
+      }
+    }
+  },
+  {
+    "probe": "P2",
+    "label": "thinking enabled + effort low",
+    "sent": {
+      "model": "glm-5.3-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly WIRE_OK and nothing else."
+        }
+      ],
+      "thinking": {
+        "type": "enabled"
+      },
+      "reasoning_effort": "low"
+    },
+    "status": 200,
+    "summary": {
+      "finish": "stop",
+      "content": "WIRE_OK",
+      "has_reasoning_content": false,
+      "reasoning_len": 0,
+      "reasoning_tokens": 0,
+      "completion_tokens": 5,
+      "thinking_echoed": null,
+      "other_msg_keys": []
+    },
+    "resp": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "WIRE_OK",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1787796586,
+      "id": "20260827100946b8cd28cd97d1475d",
+      "model": "glm-5.3-flash",
+      "object": "chat.completion",
+      "request_id": "20260827100946b8cd28cd97d1475d",
+      "usage": {
+        "completion_tokens": 5,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "prompt_tokens": 22,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 27
+      }
+    }
+  },
+  {
+    "probe": "P3",
+    "label": "thinking enabled + effort high",
+    "sent": {
+      "model": "glm-5.3-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly WIRE_OK and nothing else."
+        }
+      ],
+      "thinking": {
+        "type": "enabled"
+      },
+      "reasoning_effort": "high"
+    },
+    "status": 200,
+    "summary": {
+      "finish": "stop",
+      "content": "WIRE_OK",
+      "has_reasoning_content": true,
+      "reasoning_len": 399,
+      "reasoning_tokens": 80,
+      "completion_tokens": 85,
+      "thinking_echoed": null,
+      "other_msg_keys": []
+    },
+    "resp": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "WIRE_OK",
+            "reasoning_content": "The user is asking me to reply with exactly \"WIRE_OK\" and nothing else. This appears to be a test message, possibly testing how I follow simple instructions or perhaps testing some automated system/wire protocol.\n\nThis is a harmless request - just outputting a specific string. There's nothing problematic about it. I should simply comply with the exact instruction.\n\nThe response should be: WIRE_OK",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1787796599,
+      "id": "202608271009470e94c08b454b45f5",
+      "model": "glm-5.3-flash",
+      "object": "chat.completion",
+      "request_id": "202608271009470e94c08b454b45f5",
+      "usage": {
+        "completion_tokens": 85,
+        "completion_tokens_details": {
+          "reasoning_tokens": 80
+        },
+        "prompt_tokens": 22,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 107
+      }
+    }
+  },
+  {
+    "probe": "P4",
+    "label": "thinking enabled + effort max",
+    "sent": {
+      "model": "glm-5.3-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly WIRE_OK and nothing else."
+        }
+      ],
+      "thinking": {
+        "type": "enabled"
+      },
+      "reasoning_effort": "max"
+    },
+    "status": 200,
+    "summary": {
+      "finish": "stop",
+      "content": "WIRE_OK",
+      "has_reasoning_content": true,
+      "reasoning_len": 142,
+      "reasoning_tokens": 32,
+      "completion_tokens": 37,
+      "thinking_echoed": null,
+      "other_msg_keys": []
+    },
+    "resp": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "WIRE_OK",
+            "reasoning_content": "The user wants me to reply with exactly \"WIRE_OK\" and nothing else. This is a simple instruction-following test. I should just comply exactly.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1787796661,
+      "id": "20260827101058b4efa57834eb4526",
+      "model": "glm-5.3-flash",
+      "object": "chat.completion",
+      "request_id": "20260827101058b4efa57834eb4526",
+      "usage": {
+        "completion_tokens": 37,
+        "completion_tokens_details": {
+          "reasoning_tokens": 32
+        },
+        "prompt_tokens": 22,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 59
+      }
+    }
+  },
+  {
+    "probe": "P5",
+    "label": "thinking enabled + effort medium",
+    "sent": {
+      "model": "glm-5.3-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly WIRE_OK and nothing else."
+        }
+      ],
+      "thinking": {
+        "type": "enabled"
+      },
+      "reasoning_effort": "medium"
+    },
+    "status": 200,
+    "summary": {
+      "finish": "stop",
+      "content": "WIRE_OK",
+      "has_reasoning_content": false,
+      "reasoning_len": 0,
+      "reasoning_tokens": 0,
+      "completion_tokens": 5,
+      "thinking_echoed": null,
+      "other_msg_keys": []
+    },
+    "resp": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "WIRE_OK",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1787796663,
+      "id": "202608271011014fe2f084c1614d9e",
+      "model": "glm-5.3-flash",
+      "object": "chat.completion",
+      "request_id": "202608271011014fe2f084c1614d9e",
+      "usage": {
+        "completion_tokens": 5,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "prompt_tokens": 22,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 27
+      }
+    }
+  },
+  {
+    "probe": "P6",
+    "label": "thinking disabled (off-switch?)",
+    "sent": {
+      "model": "glm-5.3-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly WIRE_OK and nothing else."
+        }
+      ],
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    "status": 200,
+    "summary": {
+      "finish": "stop",
+      "content": "WIRE_OK",
+      "has_reasoning_content": false,
+      "reasoning_len": 0,
+      "reasoning_tokens": 0,
+      "completion_tokens": 5,
+      "thinking_echoed": null,
+      "other_msg_keys": []
+    },
+    "resp": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "index": 0,
+          "message": {
+            "content": "WIRE_OK",
+            "role": "assistant"
+          }
+        }
+      ],
+      "created": 1787796667,
+      "id": "20260827101104138d0293d3264546",
+      "model": "glm-5.3-flash",
+      "object": "chat.completion",
+      "request_id": "20260827101104138d0293d3264546",
+      "usage": {
+        "completion_tokens": 5,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "prompt_tokens": 22,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "total_tokens": 27
+      }
+    }
+  }
+]
