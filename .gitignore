@@ -20,3 +20,8 @@ desktop.ini
 node_modules/
 __pycache__/
 *.pyc
+
+# build intermediates
+assets/picker-raw.png
+assets/picker-shot.png
+demo-picker.log
