@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="#"><img src="assets/appmock.png" alt="Grok Bot with every agent on a different model" width="420"></a>
+  <img src="assets/appmock.png" alt="Grok Bot with every agent on a different model" width="400">
 </p>
 
 <h1 align="center">open·grok</h1>
@@ -7,18 +7,10 @@
 <p align="center"><em>one model per agent — pick, test, save. keys stay on your machine.</em></p>
 
 <p align="center">
-  <a href="#-quick-start"><img src="https://img.shields.io/badge/setup-one%20command-7c6cff" alt="setup"></a>
-  <img src="https://img.shields.io/badge/license-MIT-3fb950" alt="MIT">
-  <img src="https://img.shields.io/badge/maps-evidence--based-a78bfa" alt="evidence-based">
-  <img src="https://img.shields.io/badge/dependencies-zero-2f81f7" alt="zero deps">
-</p>
-
----<h1 align="center"></h1>
-
-<p align="center">
   <a href="#-quick-start"><img alt="setup" src="https://img.shields.io/badge/setup-one%20command-7c6cff"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-3fb950"></a>
   <a href="#-the-laws"><img alt="evidence" src="https://img.shields.io/badge/maps-evidence--based-a78bfa"></a>
+  <a href="https://github.com/OnlyTerp/opengrok/actions/workflows/verify.yml"><img alt="verify" src="https://github.com/OnlyTerp/opengrok/actions/workflows/verify.yml/badge.svg"></a>
   <img alt="deps" src="https://img.shields.io/badge/dependencies-zero-2f81f7">
   <img alt="platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-8b949e">
 </p>
@@ -71,7 +63,10 @@ knobs. opengrok fixes the wire:
 | **DeepSeek** | thinking lives in the model slug, not the body | slug-owns-thinking mapping |
 | **local models** | context/recovery edges | dedicated route, fail-closed |
 
-Every row of that table is backed by a capture in `docs/MODEL-GUIDELINES.md`.
+Every row of that table is backed by a capture in `wire-captures/`
+(see [glm-5.3-flash](wire-captures/glm-5.3-flash/) for the full ladder —
+bare request thinks by default, `disabled` really switches it off, `max` is a
+real token).
 
 ## 🧩 How it fits together
 
@@ -116,17 +111,18 @@ node tools/test-provider-maps-hop.cjs   #  6/6 — Contract B
 python tools/qa.py                      # leak scan, ref integrity, suites
 ```
 
-The QA tool is itself negative-control-tested: plant a fake key or break a file
-and it **fails loudly** — a green that can't fail is decoration.
+CI runs all three on every push and PR. The QA tool is itself
+negative-control-tested: plant a fake key or break a file and it **fails
+loudly** — a green that can't fail is decoration.
 
 ## ➕ Adding a provider
 
 ```bash
-python tools/wire-probe.py --base https://api.example.com/v1   --model their-model --key-env THEIR_API_KEY
+python tools/wire-probe.py --base https://api.example.com/v1 --model their-model --key-env THEIR_API_KEY
 ```
 
-Run it, paste the verdict into a PR. `CONTRIBUTING.md` has the contract —
-**no capture, no merge.**
+Run it, paste the verdict into a PR with the capture attached.
+`CONTRIBUTING.md` has the contract — **no capture, no merge.**
 
 ## 🗺️ Status
 

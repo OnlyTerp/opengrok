@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/banner.svg" width="720" alt="opengrok — run any model in Grok Bot">
+</p>
+
 # Making Any Model Work Properly in Grok Bot
 
 The complete guide. Everything here comes from a production multi-provider deployment; each rule exists because skipping it caused a real incident.

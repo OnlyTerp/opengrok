@@ -40,6 +40,9 @@ Reviewers verify claims against captures, not against your prose.
 Every green needs a proven red: revert your map change, watch the new tests
 fail, restore byte-identical. A test that can't fail is decoration.
 
+CI runs both suites + `tools/qa.py` on every PR — a red badge blocks merge,
+and qa.py leak-scans every file you add.
+
 ## What we don't accept
 
 - Maps from documentation reading alone (docs lie; wires don't)
