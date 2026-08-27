@@ -1,5 +1,5 @@
 {
-  "_source": "box hop :18786/health — transcribed from live VNC screenshot 2026-08-27; refresh via typed channel when needed",
+  "_source": "example shape of a hop /health route table — placeholders only",
   "claude-oauth-3": {"configured": true, "keys": false, "upstream": "windows-shim",
     "shim": "http://YOUR-PC-TAILNET-IP:18776/v1", "socks": "YOUR-PC-TAILNET-IP:1080", "httpProxyFallback": "http://127.0.0.1:8888",
     "models": ["claude-opus-5-oauth-3", "claude-fable-5-oauth-3"],
