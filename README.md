@@ -80,6 +80,13 @@ real token).
 - `provider-maps.cjs` — Contract A: direct body maps (client-side lanes)
 - `provider-maps-hop.cjs` — Contract B: `applyHarnessControls()` for hop lanes — this is what ships on the box
 
+**Cloud agents need one more step.** Stock Grok Bot cloud hosts do not read
+`model-bindings.json` — a saved binding is ignored until you install the
+binding consumer into the host. `tools/apply-box-patch.py` does that (anchored,
+idempotent, backs up first), and `tools/file-relay.py` is the box-side file
+relay the picker pushes bindings to. See [CLOUD-HOST](docs/CLOUD-HOST.md) for
+the full local → push → patch → bounce → verify flow.
+
 ## 🛡️ Update-proof by design
 
 Grok Bot updates silently rewrite its bundle. Instead of hoping:
@@ -124,7 +131,7 @@ Run it, paste the verdict into a PR with the capture attached.
 
 - ✅ Working today: Grok, GLM, Claude plans, Gemini (incl. fast lane), DeepSeek, local llama.cpp
 - 🧪 Pattern proven, capture pending: OpenRouter, Groq, Mistral, xAI OAuth
-- 📄 Docs: [MODEL-GUIDELINES](docs/MODEL-GUIDELINES.md) · [BYOK vs hop](docs/BYOK-DECISION.md) · [FAILURE-MODES](docs/FAILURE-MODES.md) · [ROADMAP](docs/ROADMAP.md)
+- 📄 Docs: [MODEL-GUIDELINES](docs/MODEL-GUIDELINES.md) · [BYOK vs hop](docs/BYOK-DECISION.md) · [FAILURE-MODES](docs/FAILURE-MODES.md) · [CLOUD-HOST](docs/CLOUD-HOST.md) · [ROADMAP](docs/ROADMAP.md)
 
 ---
 
