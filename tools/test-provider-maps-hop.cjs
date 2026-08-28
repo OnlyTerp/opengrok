@@ -46,6 +46,35 @@ check("hop-claude: shim-owned thinking; effort passes as reasoning_effort (live 
   eq(r.applied.wire.thinking.status, "shim-owned", "thinking never body-painted");
 });
 
+check("hop-cliproxy: provider cliproxyapi -> route cliproxyapi, body untouched, wire noops", function () {
+  const bodyIn = { model: "gemini-3-flash", messages: [] };
+  const before = JSON.stringify(bodyIn);
+  const r = maps.applyHarnessControls({
+    modelId: "gemini-3-flash",
+    provider: "cliproxyapi",
+    maxMode: true,
+    parameters: [
+      { id: "thinking", value: "false" },
+      { id: "effort", value: "high" },
+      { id: "fast", value: "true" },
+    ],
+    body: bodyIn,
+  });
+  eq(r.route, "cliproxyapi");
+  eq(JSON.stringify(r.body), before, "body must stay untouched");
+  eq(r.body.reasoning_effort, undefined);
+  eq(r.body.thinking, undefined);
+  eq(r.applied.wire.thinking.status, "noop");
+  eq(r.applied.wire.effort.status, "noop");
+  eq(r.applied.wire.fast.status, "noop");
+  eq(r.applied.wire.context.status, "noop");
+  eq(r.applied.wire.maxMode.status, "noop");
+});
+
+check("hop-cliproxy: without cliproxy hint, existing heuristics unchanged", function () {
+  eq(maps.routeNameForModel("gemini-3-flash", "antigravity"), "antigravity-plan");
+});
+
 console.log("");
 console.log(passed + "/" + (passed + failed) + " hop-pass, " + failed + " fail");
 process.exit(failed ? 1 : 0);

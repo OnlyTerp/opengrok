@@ -104,10 +104,20 @@ function applyGrok(body, maxMode, parameters) {
  *   xiaomi mimo, qwen token-plan/local (plain chat_completions needs nothing),
  *   hermes-agent (:18790 hop target; api_server speaks standard OpenAI wire).
  */
+function isCliproxyRoute(baseUrl) {
+  return /127\.0\.0\.1:8317/.test(String(baseUrl || ""));
+}
+
 function applyProviderReasoningControls(body, ctx) {
   ctx = ctx || {};
   var modelId = String(ctx.modelId || "");
   var baseUrl = String(ctx.baseUrl || "");
+  // Port-first: cliproxy owns the wire. Family maps must not fire on :8317.
+  // wire-captures/cliproxy-gemini-3-flash/ — off_switch_works:false; effort
+  // HTTP-accepted but reasoning_tok did not scale; thinks_by_default:false.
+  if (isCliproxyRoute(baseUrl)) {
+    return "cliproxy-passthrough";
+  }
   if (isGrokRoute(modelId, baseUrl)) {
     applyGrok(body, ctx.maxMode === true, ctx.parameters);
     return "grok";
@@ -221,6 +231,7 @@ module.exports = {
   __test: {
     EFFORT_TO_XAI: EFFORT_TO_XAI,
     applyGrok: applyGrok,
+    isCliproxyRoute: isCliproxyRoute,
     isClaudeRoute: isClaudeRoute,
     isGeminiRoute: isGeminiRoute,
     applyGemini: applyGemini,

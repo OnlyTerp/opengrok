@@ -158,5 +158,85 @@ check("glm: base-url detection via bigmodel.cn", function () {
   eq(maps.__test.isGlmRoute("some-slug", "https://open.bigmodel.cn/api/coding/paas/v4"), true);
 });
 
+var CLIPROXY = "http://127.0.0.1:8317/v1";
+var CLIPROXY_FAMILY_IDS = ["claude-opus-5-oauth-3", "grok-4.6-superheavy", "gemini-3-flash"];
+
+check("cliproxy: family modelIds on :8317 -> cliproxy-passthrough, body byte-identical", function () {
+  CLIPROXY_FAMILY_IDS.forEach(function (id) {
+    var b = { model: id, messages: [] };
+    var before = JSON.stringify(b);
+    var label = applyControls(b, {
+      modelId: id,
+      baseUrl: CLIPROXY,
+      maxMode: true,
+      parameters: [
+        { id: "effort", value: "high" },
+        { id: "thinking", value: "false" },
+        { id: "fast", value: "true" },
+      ],
+    });
+    eq(label, "cliproxy-passthrough", "label for " + id);
+    eq(JSON.stringify(b), before, "body mutated for " + id);
+    eq(b.reasoning_effort, undefined, "no reasoning_effort for " + id);
+    eq(b.thinking, undefined, "no thinking for " + id);
+  });
+});
+
+check("cliproxy: same modelIds on family ports still take family routes", function () {
+  var bClaude = { model: "claude-opus-5-oauth-3", messages: [] };
+  eq(applyControls(bClaude, {
+    modelId: "claude-opus-5-oauth-3",
+    baseUrl: "http://127.0.0.1:18776/v1",
+    parameters: [{ id: "effort", value: "high" }],
+  }), "claude-passthrough");
+
+  var bGrok = {};
+  eq(applyControls(bGrok, {
+    modelId: "grok-4.6-superheavy",
+    baseUrl: "http://127.0.0.1:18779/v1",
+    maxMode: true,
+  }), "grok");
+  eq(bGrok.reasoning_effort, "xhigh");
+
+  var bGem = { model: "gemini-3.7-flash" };
+  eq(applyControls(bGem, {
+    modelId: "gemini-3.7-flash",
+    baseUrl: "http://127.0.0.1:18778/v1",
+    parameters: [{ id: "effort", value: "low" }],
+  }), "gemini-passthrough");
+});
+
+check("cliproxy: unmatched slug on :8317 -> cliproxy-passthrough, body clean", function () {
+  var b = { model: "mystery-slug-xyz", messages: [] };
+  var before = JSON.stringify(b);
+  var label = applyControls(b, {
+    modelId: "mystery-slug-xyz",
+    baseUrl: CLIPROXY,
+    parameters: [{ id: "effort", value: "max" }],
+  });
+  eq(label, "cliproxy-passthrough");
+  eq(JSON.stringify(b), before);
+});
+
+check("cliproxy: effort/thinking/fast on :8317 must NOT inject fields", function () {
+  var b = {};
+  applyControls(b, {
+    modelId: "gemini-3-flash",
+    baseUrl: CLIPROXY,
+    maxMode: true,
+    parameters: [
+      { id: "effort", value: "xhigh" },
+      { id: "thinking", value: "disabled" },
+      { id: "fast", value: true },
+    ],
+  });
+  deepEq(b, {});
+});
+
+check("cliproxy: isCliproxyRoute detects :8317 only", function () {
+  eq(maps.__test.isCliproxyRoute(CLIPROXY), true);
+  eq(maps.__test.isCliproxyRoute("http://127.0.0.1:18776/v1"), false);
+});
+
 console.log("\n" + passed + "/" + (passed + failed) + " pass, " + failed + " fail");
 process.exit(failed ? 1 : 0);

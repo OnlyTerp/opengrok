@@ -33,6 +33,11 @@ function asParamsObject(parameters) {
 function routeNameForModel(modelId, providerHint) {
   const m = String(modelId || "").toLowerCase();
   const p = String(providerHint || "").toLowerCase();
+  // Provider hint wins before modelId family heuristics so gemini-* under
+  // cliproxy does not become antigravity-plan.
+  if (p.includes("cliproxy")) {
+    return "cliproxyapi";
+  }
   if (p.includes("grok") || p.includes("superheavy") || m.startsWith("grok") || m.includes("superheavy")) {
     return "grok-superheavy";
   }
@@ -277,6 +282,30 @@ function applyHarnessControls(input) {
       wire.reasoning_effort = { value: null, note: "provider-default" };
     }
     applied.wire = wire;
+    return { body, route, applied, unknownIds };
+  }
+
+  if (route === "cliproxyapi") {
+    // live-verified 2026-08-28 (wire-captures/cliproxy-gemini-3-flash/)
+    // thinking: noop — off_switch_works:false (thinking:disabled still returned reasoning tokens)
+    // effort:   noop — tokens HTTP-accepted (low|medium|high|max|xhigh) but reasoning_tok did not scale
+    // fast:     noop — no verified fast profile / off-switch
+    // context:  noop — no hop context wire
+    // maxMode:  noop — no discrete cliproxy wire
+    applied.wire = {
+      note: "cliproxy-hop-owns-wire",
+      thinking: {
+        status: "noop",
+        reason: "wire-captures/cliproxy-gemini-3-flash/: off_switch_works:false"
+      },
+      effort: {
+        status: "noop",
+        reason: "wire-captures/cliproxy-gemini-3-flash/: effort HTTP-accepted but reasoning_tok did not scale"
+      },
+      fast: { status: "noop", reason: "no-verified-fast-profile" },
+      context: { status: "noop", reason: "no-hop-context-wire" },
+      maxMode: { status: "noop", reason: "no-discrete-cliproxy-wire" }
+    };
     return { body, route, applied, unknownIds };
   }
 
