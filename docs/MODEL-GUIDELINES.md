@@ -70,6 +70,7 @@ Worked examples shipped and tested (17/17):
 
 | Route detector | Map |
 |---|---|
+| `:8317` / cliproxy (port-first) | **pass-through BY DESIGN** — hop owns the wire; family maps do not fire on this baseUrl. Capture `wire-captures/cliproxy-gemini-3-flash/` shows effort decorative and thinking off-switch false. Optional key-injecting hop (`tools/hop-server.py` with upstream `:8317`) is available when operators need shared bearer injection; not required for enrollment. |
 | `claude-*` or `:18776` | **pass-through BY DESIGN** — the lane's shim already pins thinking/tool-sanitize state; emitting more fights it |
 | `gemini-*` + family `gemini-3.6-flash` exactly | effort → distinct real slugs (`-low/-medium/-high`, max clamps high); other families untouched |
 | `deepseek-*` (or nano-gpt base) with `:thinking` slug or thinking param | top-level `thinking:{type:"enabled"}`, default `reasoning_effort:"high"`, `max_tokens` gap-fill **only if caller omitted it** |

@@ -108,6 +108,7 @@ if not SERVICES_CFG:  # fallback: our production table (kept so doctor works out
         (18777, "codex-shim",        None),
         (18778, "antigravity-shim",  None),
         (18779, "grok-shim",         lambda: probe_url("http://127.0.0.1:18779/health")),
+        (8317,  "cliproxyapi",       None),  # TCP listen only; no dedicated /health; avoid metered completions
         (30000, "llama-server slot",  lambda: probe_url("http://127.0.0.1:30000/v1/models", '"models"')),  # identity-agnostic: slot serves qwen/ornith per season; body must be a models list
     ]
 

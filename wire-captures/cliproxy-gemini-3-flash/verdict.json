@@ -1,0 +1,17 @@
+{
+  "model": "gemini-3-flash",
+  "base": "http://127.0.0.1:8317/v1",
+  "when": "2026-08-28 17:44",
+  "thinks_by_default": false,
+  "off_switch_works": false,
+  "effort_tokens_accepted": [
+    "low",
+    "high",
+    "max",
+    "medium",
+    "xhigh"
+  ],
+  "capture": "wire-captures/cliproxy-gemini-3-flash/capture.json",
+  "via": "cliproxyapi",
+  "note": "off_switch_works=false; effort tokens HTTP-accepted but reasoning_tok did not scale \u2014 do not ship half-maps"
+}

@@ -102,8 +102,8 @@ Hard-won rules this repo encodes — each one earned by a real failure:
 ## 🧪 Testing (how we know it's true)
 
 ```bash
-node tools/test-provider-maps.cjs       # 23/23 — Contract A
-node tools/test-provider-maps-hop.cjs   #  6/6 — Contract B
+node tools/test-provider-maps.cjs       # 28/28 — Contract A
+node tools/test-provider-maps-hop.cjs   #  8/8 — Contract B
 python tools/qa.py                      # leak scan, ref integrity, suites
 ```
 
@@ -123,6 +123,7 @@ Run it, paste the verdict into a PR with the capture attached.
 ## 🗺️ Status
 
 - ✅ Working today: Grok, GLM, Claude plans, Gemini (incl. fast lane), DeepSeek, local llama.cpp
+- 🔌 Optional hop: cliproxyapi on `:8317` (pass-through BY DESIGN; family maps do not fire on that baseUrl)
 - 🧪 Pattern proven, capture pending: OpenRouter, Groq, Mistral, xAI OAuth
 - 📄 Docs: [MODEL-GUIDELINES](docs/MODEL-GUIDELINES.md) · [BYOK vs hop](docs/BYOK-DECISION.md) · [FAILURE-MODES](docs/FAILURE-MODES.md) · [ROADMAP](docs/ROADMAP.md)
 

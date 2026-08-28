@@ -94,7 +94,8 @@ def main():
     services = {}
     for port, name in [(8642,"hermes-api"),(11434,"ollama"),(30000,"llama-server"),
                        (18779,"grok-shim"),(18786,"superheavy-hop"),(18776,"claude-shim"),
-                       (18778,"antigravity-shim"),(18777,"codex-shim")]:
+                       (18778,"antigravity-shim"),(18777,"codex-shim"),
+                       (8317,"cliproxyapi")]:
         up = tcp(port)
         services[port] = up
         if up: say("g", f"svc", f":{port} {name} — LIVE")

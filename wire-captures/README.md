@@ -27,6 +27,7 @@ wire-captures/<model-slug>/
 | Model | Verdict | Proven by |
 |---|---|---|
 | `glm-5.3-flash` | thinks by default · `thinking:disabled` is a TRUE off-switch · `low/medium/high/max` all accepted | [glm-5.3-flash/](glm-5.3-flash/) — 7 probes, live 2026-08-26 |
+| `gemini-3-flash` via cliproxyapi `:8317` | **negative evidence** · `off_switch_works:false` · effort tokens HTTP-accepted but reasoning_tok did not scale · justifies hop-owned passthrough (no dialect map) | [cliproxy-gemini-3-flash/](cliproxy-gemini-3-flash/) — live 2026-08-28 |
 
 ## Reproducing a capture
 

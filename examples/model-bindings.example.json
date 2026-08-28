@@ -35,6 +35,14 @@
       "provider": "local-gpu",
       "hopBaseUrl": "http://127.0.0.1:30000/v1",
       "parameters": []
+    },
+    "00000000-0000-4000-8000-000000000005": {
+      "name": "Cliproxy lane (multi-backend OpenAI front door)",
+      "modelId": "<cliproxy-catalog-slug>",
+      "provider": "cliproxyapi",
+      "hopBaseUrl": "http://127.0.0.1:8317/v1",
+      "maxMode": false,
+      "parameters": []
     }
   }
 }
