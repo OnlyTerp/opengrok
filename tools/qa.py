@@ -8,6 +8,7 @@ Runs the checks a reviewer would run by hand, so PRs stay honest:
   2. every docs/README cross-reference resolves to a real file
   3. leak scan: no tailnet/private IPs, no key-shaped strings in code
   4. map tests green (if node available)
+  5. Python behavioral tests green
 """
 import json, re, shutil, subprocess, sys
 
@@ -79,6 +80,19 @@ if node:
         print(f"map tests: {tail}")
 else:
     warns.append("node not found - map tests skipped")
+
+# 5. Python behavioral tests
+tests = HERE / "tests"
+if tests.is_dir():
+    r = subprocess.run(
+        [sys.executable, "-m", "unittest", "discover", "-s", str(tests), "-p", "test_*.py"],
+        capture_output=True, text=True,
+    )
+    tail = (((r.stdout or "") + (r.stderr or "")).strip().splitlines() or ["?"])[-1]
+    if r.returncode:
+        fails.append(f"Python tests: {tail}")
+    else:
+        print(f"Python tests: {tail}")
 
 print()
 for w in warns:

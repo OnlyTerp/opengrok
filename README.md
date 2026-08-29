@@ -43,6 +43,44 @@ python tools/doctor.py        # anytime: is everything still healthy?
 python tools/qa.py            # repo self-check: leaks, refs, tests
 ```
 
+## KORG-I: OAuth-first Grok Bot lane
+
+KORG-I is the lil pup and mascot of the fleet. Its loopback bridge gives Grok
+Bot a narrowly scoped xAI route without changing the ordinary `grok` command or
+its config.
+
+KORG-I currently supports macOS and Linux. Obtain a real stable agent ID from
+Grok Bot's existing agent or workflow metadata; never invent one. Then:
+
+```bash
+mkdir -p "$HOME/.local/bin"
+ln -s "$PWD/bin/korg-i" "$HOME/.local/bin/korg-i"
+korg-i auth status
+korg-i probe
+korg-i bind set --agent-id '<real-stable-grok-bot-agent-id>' \
+  --name Executor --model grok-4.6
+korg-i configure
+```
+
+The existing Grok CLI OAuth record is always the first credential used. API
+fallback comes from `KORG_I_XAI_API_KEY`, `XAI_API_KEY`, or a single
+1Password reference in
+`${XDG_CONFIG_HOME:-$HOME/.config}/korg-i/api-key-ref`. A fallback replay
+is allowed only when the same OAuth/API credential pair has proved an exact
+model overlap in the current process and OAuth returns 401/403 or structured
+quota exhaustion. Redirects, generic 429s, network failures, and 5xx responses
+fail closed.
+
+When present, `korg-i configure` resolves `KORG_I_SET_GROK_WRAPPER` or
+`set-grok-bot` on `PATH` and invokes it without passing either secret. Without
+that optional integration it opens the live model picker directly. Both paths
+stay in the same terminal process. Every bridge start rotates an unguessable
+session capability and refreshes KORG-I bindings; requests without that
+capability are rejected. Bindings and model proof live in private XDG
+directories, and KORG-I never rewrites `~/.grok`.
+
+Use `korg-i serve` when bindings already exist and only the bridge is needed.
+
 ## 🤖 What it gives each model
 
 Dropping a foreign model into Grok Bot usually "works" and feels *off* — slower,

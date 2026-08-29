@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+SELF=$0
+case "$SELF" in /*) ;; *) SELF=$PWD/$SELF ;; esac
+while [ -L "$SELF" ]; do
+  DIR=$(CDPATH= cd -P "$(dirname "$SELF")" && pwd)
+  LINK=$(readlink "$SELF")
+  case "$LINK" in /*) SELF=$LINK ;; *) SELF=$DIR/$LINK ;; esac
+done
+ROOT=$(CDPATH= cd -P "$(dirname "$SELF")/.." && pwd)
+exec python3 "$ROOT/korg_i.py" "$@"
