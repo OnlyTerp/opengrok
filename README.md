@@ -127,6 +127,25 @@ python tools/wire-probe.py --base https://api.example.com/v1 --model their-model
 Run it, paste the verdict into a PR with the capture attached.
 `CONTRIBUTING.md` has the contract — **no capture, no merge.**
 
+## 🎙️ Voice assistant (voice/)
+
+A full local realtime voice assistant built on the same wire-truth philosophy:
+
+- **Ears** — streaming STT (Grok/xAI), energy-gated turn detection
+- **Captain** — OpenAI realtime brain (`gpt-realtime-2.1`) with consult/dispatch tools
+- **Mouth** — ElevenLabs TTS (any voice, including your own clone), never-flush queue, barge-in
+
+Browser panel UI, zero native audio deps, all lanes localhost-only. Setup is a
+guided walkthrough (ElevenLabs key + Codex CLI login + Grok CLI login), with a
+doctor that tells you exactly what's missing:
+
+```powershell
+node voice/doctor.js                      # pre-flight check
+voice\scripts\start-voice.ps1             # start everything, open the panel
+```
+
+See [voice/README.md](voice/README.md) · [voice/SETUP.md](voice/SETUP.md).
+
 ## 🗺️ Status
 
 - ✅ Working today: Grok, GLM, Claude plans, Gemini (incl. fast lane), DeepSeek, local llama.cpp
