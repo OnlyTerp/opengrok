@@ -149,7 +149,7 @@ function applyHarnessControls(input) {
     //   effort           → reasoning_effort when explicit (do not invent)
     //   thinking         → SHIM-OWNED: adaptive + summarized display pinned in
     //                      Windows shim / thinkingPin. Never inject type=enabled
-    //                      or budget_tokens here (400 on Opus 5 / Fable 5).
+    //                      or budget_tokens here (400 on claude-plans lanes).
     //   maxMode          → noop (no discrete Claude wire; effort is the lever)
     //   fast             → noop (no Claude fast wire on OpenAI-compat body)
     //   context          → noop on hop body (1m is catalog/native selection)

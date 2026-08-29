@@ -236,7 +236,7 @@ def try_fix(dead_names: list[str]) -> None:
         "antigravity-shim": ["cscript", "//nologo", str(STARTUP / "antigravity-shim.vbs")],
     }
     if "claude-shim" in dead_names:
-        rd = HOME / ".terp" / "claude-shim"
+        rd = os.environ.get("CLAUDE_SHIM_DIR") or (HOME / ".claude-shim")
         if (rd / "restart-shim.py").exists():
             r = subprocess.run([sys.executable, "restart-shim.py"], cwd=rd,
                                capture_output=True, text=True, timeout=240)
