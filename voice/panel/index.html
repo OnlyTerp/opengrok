@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GrokBot Voice</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #11151f; --edge: #1e2433;
+    --fg: #e8ecf4; --dim: #8b94a7; --accent: #5eead4; --warn: #fbbf24; --bad: #f87171;
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+  header { width: 100%; max-width: 760px; padding: 28px 20px 0; }
+  h1 { font-size: 20px; font-weight: 650; letter-spacing: .02em; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 13px; }
+  main { width: 100%; max-width: 760px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .banner { border: 1px solid var(--edge); background: var(--panel); border-radius: 12px; padding: 14px 16px; font-size: 13px; line-height: 1.7; display: none; }
+  .banner.show { display: block; }
+  .banner.ok { border-color: #14532d; }
+  .banner.bad { border-color: #7f1d1d; }
+  .banner .row { display: flex; gap: 10px; align-items: baseline; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; align-self: center; }
+  .dot.g { background: var(--accent); } .dot.r { background: var(--bad); } .dot.y { background: var(--warn); }
+  .controls { display: flex; gap: 10px; align-items: center; }
+  button { font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--edge); background: var(--panel); color: var(--fg); padding: 10px 22px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #06281f; border-color: transparent; }
+  button:disabled { opacity: .45; cursor: default; }
+  #state { font-size: 13px; color: var(--dim); }
+  #state b { color: var(--fg); }
+  .log { border: 1px solid var(--edge); background: var(--panel); border-radius: 12px; padding: 14px 16px; height: 320px; overflow-y: auto; font-size: 14px; line-height: 1.55; display: flex; flex-direction: column; gap: 8px; }
+  .line .who { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: 2px; }
+  .line.you .who { color: #7dd3fc; }
+  .line.assistant .who { color: var(--accent); }
+  .chip { align-self: flex-start; font-size: 12px; border: 1px solid var(--edge); border-radius: 999px; padding: 3px 12px; color: var(--warn); background: rgba(251,191,36,.06); }
+  .sys { color: var(--dim); font-size: 13px; }
+  footer { color: var(--dim); font-size: 12px; padding: 8px 20px 24px; text-align: center; }
+  code { background: #1a2030; border-radius: 5px; padding: 1px 6px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GrokBot Voice</h1>
+  <div class="sub">Local realtime voice assistant — STT ears, a realtime-model brain, an ElevenLabs mouth.</div>
+</header>
+<main>
+  <div id="banner" class="banner"></div>
+  <div class="controls">
+    <button id="start" class="primary" disabled>Start call</button>
+    <button id="stop" disabled>Stop</button>
+    <span id="state">checking setup…</span>
+  </div>
+  <div id="log" class="log"><div class="sys">Transcript appears here once you start a call.</div></div>
+</main>
+<footer>Served locally from <code>voice/panel</code> · gateway <code>ws://127.0.0.1:18793</code> · audio stays on this machine except provider calls (STT / LLM / TTS).</footer>
+<script>
+(function () {
+  'use strict';
+  var GW = 'ws://127.0.0.1:18793';
+  var OUT_RATE = 24000;               // mic uplink + playback rate (matches gateway)
+  var ws = null;
+  var sessionActive = false;
+  var micStream = null, micCtx = null, processor = null;
+  var playCtx = null, playHead = 0;
+  var curUser = null, curAsst = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function setState(html) { $('state').innerHTML = html; }
+
+  function line(who, cls) {
+    var d = document.createElement('div');
+    d.className = 'line ' + cls;
+    var w = document.createElement('div'); w.className = 'who'; w.textContent = who;
+    var t = document.createElement('div'); t.className = 'txt';
+    d.appendChild(w); d.appendChild(t);
+    $('log').appendChild(d);
+    $('log').scrollTop = $('log').scrollHeight;
+    return t;
+  }
+
+  function chip(text) {
+    var c = document.createElement('div');
+    c.className = 'chip'; c.textContent = text;
+    $('log').appendChild(c);
+    $('log').scrollTop = $('log').scrollHeight;
+    return c;
+  }
+
+  function banner(items, ok) {
+    var b = $('banner');
+    b.className = 'banner show ' + (ok ? 'ok' : 'bad');
+    b.innerHTML = items.map(function (it) {
+      return '<div class="row"><span class="dot ' + (it.ok ? 'g' : (it.hard ? 'r' : 'y')) + '"></span><span>' + it.text + '</span></div>';
+    }).join('');
+  }
+
+  function checkSetup() {
+    fetch('/api/health').then(function (r) { return r.json(); }).then(function (h) {
+      var items = [], hard = false;
+      if (h && h.gateway) {
+        items.push({ ok: true, text: 'Voice gateway running on :18793' });
+        var k = h || {};
+        items.push({ ok: k.ears === 'up' || k.ears === 'spawned', hard: !(k.ears === 'up' || k.ears === 'spawned'), text: k.ears === 'up' || k.ears === 'spawned'
+          ? 'Ears (speech-to-text) up'
+          : 'Ears down - add Grok/xAI auth (VOICE_GROK_JWT, or log into the Grok CLI so ~/.grok/auth.json exists) and restart' });
+        items.push({ ok: k.captain === 'up' || k.captain === 'spawned', hard: !(k.captain === 'up' || k.captain === 'spawned'), text: k.captain === 'up' || k.captain === 'spawned'
+          ? 'Captain (realtime model) up'
+          : 'Captain down - authenticate the OpenAI realtime lane (run: npx codex login) or set VOICE_OPENAI_TOKEN, then restart' });
+        items.push({ ok: k.mouth === 'up' || k.mouth === 'spawned', hard: !(k.mouth === 'up' || k.mouth === 'spawned'), text: k.mouth === 'up' || k.mouth === 'spawned'
+          ? 'Mouth (ElevenLabs) up'
+          : 'Mouth down - add ELEVENLABS_API_KEY (and ELEVENLABS_VOICE_ID) to voice/.env and restart' });
+      } else {
+        hard = true;
+        items.push({ ok: false, hard: true, text: 'Gateway not reachable on :18793 — run scripts/start-voice.ps1 first' });
+      }
+      for (var i = 0; i < items.length; i++) if (items[i].hard) hard = true;
+      banner(items, !hard);
+      setState(hard ? 'setup needed — see checklist' : 'ready');
+      if (!hard) $('start').disabled = false;
+    }).catch(function () {
+      banner([{ ok: false, hard: true, text: 'Panel server unreachable — relaunch via scripts/start-voice.ps1' }], false);
+      setState('offline');
+    });
+  }
+
+  function onMsg(ev) {
+    var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.type === 'user.partial') {
+      if (!curUser) curUser = line('you', 'you');
+      curUser.textContent = m.text || '';
+      if (playCtx && m.text) cutPlayback();          // user started talking: barge in
+    } else if (m.type === 'user.utterance') {
+      if (!curUser) curUser = line('you', 'you');
+      curUser.textContent = m.text || '';
+      curUser = null;
+    } else if (m.type === 'transcript.delta') {
+      if (!curAsst) curAsst = line('assistant', 'assistant');
+      curAsst.textContent += (m.delta || '');
+      $('log').scrollTop = $('log').scrollHeight;
+    } else if (m.type === 'response.done') {
+      curAsst = null;
+    } else if (m.type === 'speak.done') {
+      curAsst = null;
+    } else if (m.type === 'audio.delta') {
+      playPcm(m.delta);
+    } else if (m.type === 'consult') {
+      chip('consulting ' + (m.agent || 'assistant') + '…');
+    } else if (m.type === 'dispatch') {
+      chip('dispatching task' + (m.agent ? ' → ' + m.agent : '') + '…');
+    } else if (m.type === 'state') {
+      setState('<b>' + (m.state || 'idle') + '</b>' + (m.error ? ' — ' + m.error : ''));
+    } else if (m.type === 'error') {
+      chip('error: ' + (m.error || 'unknown'));
+    }
+  }
+
+  function cutPlayback() {
+    // stop already-scheduled audio at the next tick; the gateway also clears its queue
+    if (playCtx && playHead > playCtx.currentTime + 0.05) playHead = playCtx.currentTime + 0.02;
+  }
+
+  function connect() {
+    return new Promise(function (res, rej) {
+      try { ws = new WebSocket(GW); } catch (e) { rej(e); return; }
+      ws.onopen = res;
+      ws.onerror = function () { rej(new Error('cannot reach voice gateway on ' + GW)); };
+      ws.onmessage = onMsg;
+      ws.onclose = function () { if (sessionActive) teardown('gateway closed'); };
+    });
+  }
+
+  function startMic() {
+    return navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+    }).then(function (stream) {
+      micStream = stream;
+      micCtx = new (window.AudioContext || window.webkitAudioContext)();
+      playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: OUT_RATE });
+      var src = micCtx.createMediaStreamSource(stream);
+      processor = micCtx.createScriptProcessor(4096, 1, 1);
+      processor.onaudioprocess = function (e) {
+        if (!ws || ws.readyState !== 1) return;
+        var f32 = e.inputBuffer.getChannelData(0);
+        var ratio = micCtx.sampleRate / OUT_RATE;
+        var n = Math.max(1, Math.floor(f32.length / ratio));
+        var out = new Int16Array(n);
+        for (var i = 0; i < n; i++) {
+          var v = f32[Math.floor(i * ratio)];
+          var s = v < -1 ? -1 : (v > 1 ? 1 : v);
+          out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        var bytes = new Uint8Array(out.buffer);
+        var bin = '';
+        for (var j = 0; j < bytes.length; j += 0x8000) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(j, Math.min(j + 0x8000, bytes.length)));
+        }
+        ws.send(JSON.stringify({ type: 'input_audio', format: 'pcm16', rate: OUT_RATE, delta: btoa(bin) }));
+      };
+      src.connect(processor);
+      processor.connect(micCtx.destination);
+    });
+  }
+
+  function playPcm(b64) {
+    if (!playCtx) return;
+    var bin = atob(b64);
+    var buf = new ArrayBuffer(bin.length);
+    var view = new Uint8Array(buf);
+    for (var i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+    var ints = new Int16Array(buf);
+    var f32 = new Float32Array(ints.length);
+    for (var k = 0; k < ints.length; k++) f32[k] = ints[k] / 0x8000;
+    var ab = playCtx.createBuffer(1, f32.length, OUT_RATE);
+    ab.copyToChannel(f32, 0);
+    var node = playCtx.createBufferSource();
+    node.buffer = ab;
+    node.connect(playCtx.destination);
+    var now = playCtx.currentTime;
+    if (playHead < now) playHead = now;
+    node.start(playHead);
+    playHead += ab.duration;
+  }
+
+  function teardown(reason) {
+    sessionActive = false;
+    try { if (processor) processor.onaudioprocess = null; } catch (e) {}
+    try { if (micStream) micStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+    try { if (micCtx) micCtx.close(); } catch (e) {}
+    try { if (playCtx) playCtx.close(); } catch (e) {}
+    processor = micStream = micCtx = playCtx = null;
+    curUser = curAsst = null;
+    try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'stop' })); } catch (e) {}
+    try { if (ws) ws.close(); } catch (e) {}
+    ws = null;
+    $('stop').disabled = true;
+    if (!bannerVisible()) $('start').disabled = false;
+    setState('idle' + (reason ? ' (' + reason + ')' : ''));
+  }
+
+  function bannerVisible() {
+    var b = $('banner');
+    return b.className.indexOf('bad') !== -1;
+  }
+
+  $('start').addEventListener('click', function () {
+    $('start').disabled = true;
+    connect().then(function () {
+      return startMic();
+    }).then(function () {
+      sessionActive = true;
+      ws.send(JSON.stringify({ type: 'start', mode: 'desk' }));
+      $('stop').disabled = false;
+      line('system', 'sys').textContent = 'Live. Speak whenever ready — you can interrupt the assistant any time.';
+    }).catch(function (e) {
+      teardown();
+      setState('failed — ' + e.message);
+      banner([{ ok: false, hard: true, text: e.message }], false);
+    });
+  });
+
+  $('stop').addEventListener('click', function () { teardown(); });
+
+  window.addEventListener('beforeunload', function () {
+    try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'stop' })); } catch (e) {}
+  });
+
+  checkSetup();
+})();
+</script>
+</body>
+</html>

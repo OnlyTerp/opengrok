@@ -26,3 +26,11 @@ assets/picker-raw.png
 assets/picker-shot.png
 demo-picker.log
 assets/appmock-raw.png
+
+# voice runtime artifacts
+voice/.env
+voice/logs/
+voice/*.log
+voice/teach-notes/
+voice/watchdog-v5.marker
+voice/voice.events.log
