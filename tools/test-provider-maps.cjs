@@ -157,6 +157,52 @@ check("glm: SILENT request stays byte-untouched (bare wire already native)", fun
 check("glm: base-url detection via bigmodel.cn", function () {
   eq(maps.__test.isGlmRoute("some-slug", "https://open.bigmodel.cn/api/coding/paas/v4"), true);
 });
+// ---------- LOCAL QWEN / LM Studio (wire-verified 2026-08-30) ----------
+check("local-qwen: effort=high -> reasoning_effort high", function () {
+  var b = { model: "qwen3.8-27b-obliterated" };
+  var label = applyControls(b, {
+    modelId: "qwen3.8-27b-obliterated",
+    baseUrl: "http://127.0.0.1:1234/v1",
+    parameters: [{ id: "effort", value: "high" }]
+  });
+  eq(label, "local-qwen-effort");
+  eq(b.reasoning_effort, "high");
+});
 
+check("local-qwen: effort=max folds to xhigh", function () {
+  var b = {};
+  maps.__test.applyLocalQwen(b, [{ id: "effort", value: "max" }]);
+  eq(b.reasoning_effort, "xhigh");
+});
+
+check("local-qwen: fast=true is explicit noop (no off-switch)", function () {
+  var b = { model: "qwen3.8-27b-obliterated" };
+  var label = applyControls(b, {
+    modelId: "qwen3.8-27b-obliterated",
+    baseUrl: "http://127.0.0.1:1234/v1",
+    parameters: [{ id: "fast", value: true }]
+  });
+  eq(label, "local-qwen-fast-noop");
+  eq(b.reasoning_effort, undefined); // nothing was added
+});
+
+check("local-qwen: SILENT request stays byte-untouched", function () {
+  var b = { model: "qwen3.8-27b-obliterated", messages: [] };
+  var label = applyControls(b, {
+    modelId: "qwen3.8-27b-obliterated",
+    baseUrl: "http://127.0.0.1:1234/v1",
+    parameters: []
+  });
+  eq(label, "local-qwen-passthrough");
+  deepEq(Object.keys(b), ["model", "messages"], "silent local-qwen body gained fields");
+});
+
+check("local-qwen: base-url detection via 127.0.0.1:1234", function () {
+  eq(maps.__test.isLocalQwenRoute("whatever", "http://127.0.0.1:1234/v1"), true);
+});
+
+check("local-qwen: model name detection via qwen", function () {
+  eq(maps.__test.isLocalQwenRoute("qwen3.8-27b-obliterated", ""), true);
+});
 console.log("\n" + passed + "/" + (passed + failed) + " pass, " + failed + " fail");
 process.exit(failed ? 1 : 0);

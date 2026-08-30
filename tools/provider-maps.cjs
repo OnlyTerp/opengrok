@@ -128,6 +128,10 @@ function applyProviderReasoningControls(body, ctx) {
     var gLabel = applyGlm(body, ctx.parameters);
     return gLabel || "glm-passthrough";
   }
+  if (isLocalQwenRoute(modelId, baseUrl)) {
+    var lqLabel = applyLocalQwen(body, ctx.parameters);
+    return lqLabel || "local-qwen-passthrough";
+  }
   return "none";
 }
 
@@ -214,7 +218,49 @@ function applyDeepSeek(body, modelId, parameters) {
   if (body.max_tokens == null) body.max_tokens = 256000;
   return true;
 }
+/*
+ * Local Qwen / LM Studio (llama.cpp OpenAI-compatible) — VERIFIED LIVE 2026-08-30
+ * Capture: wire-captures/qwen3.8-27b-obliterated/
+ * Verified: thinks by default, effort tokens low/medium/high/xhigh accepted,
+ * no real off-switch (off_switch_works: false).
+ * Philosophy: gap-fill only. fast is an explicit noop.
+ */
+function applyLocalQwen(body, parameters) {
+  var effort = param(parameters, "effort");
+  var LOCAL_EFFORT = {
+    low: "low",
+    medium: "medium",
+    high: "high",
+    max: "xhigh",   // map max → xhigh (provider has no "max")
+    xhigh: "xhigh",
+    minimal: "low"
+  };
 
+  // fast has no real off-switch → explicit noop
+  var fast = param(parameters, "fast");
+  if (fast === true || String(fast).toLowerCase() === "true") {
+    return "local-qwen-fast-noop"; // documented noop
+  }
+
+  var token = effort != null ? LOCAL_EFFORT[String(effort)] : undefined;
+  if (token) {
+    if (body.reasoning_effort == null) {
+      body.reasoning_effort = token;
+    }
+    return "local-qwen-effort";
+  }
+
+  return null; // silent request stays untouched
+}
+
+var LOCAL_LMSTUDIO_RE = /127\.0\.0\.1:1234/;
+function isLocalQwenRoute(modelId, baseUrl) {
+  // Only treat as local when it's clearly running on LM Studio port
+  // or the model name is the specific one we verified.
+  if (LOCAL_LMSTUDIO_RE.test(String(baseUrl || ""))) return true;
+  if (/qwen3\.8-27b-obliterated/i.test(String(modelId || ""))) return true;
+  return false;
+}
 module.exports = {
   applyProviderReasoningControls: applyProviderReasoningControls,
   isGrokRoute: isGrokRoute,
@@ -228,5 +274,7 @@ module.exports = {
     applyDeepSeek: applyDeepSeek,
     isGlmRoute: isGlmRoute,
     applyGlm: applyGlm,
+    isLocalQwenRoute: isLocalQwenRoute,
+    applyLocalQwen: applyLocalQwen,
   },
 };
