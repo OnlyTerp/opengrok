@@ -115,7 +115,7 @@ def patch_host(ht):
     # else: already patched (anchor 2 replaced on a previous run)
     return ht
 
-def patch_hop(ht):
+def patch_hop(ht, maps_path):
     h0 = ht
     # 3a: createOpenAiHopSession accepts maxMode/parameters
     old = "const requestKind = opts && opts.requestKind;\n  return {"
@@ -137,7 +137,7 @@ def patch_hop(ht):
     # 3c: require map + apply in stream
     if "applyProviderReasoningControls" not in ht:
         old = 'const fs = require("fs");'
-        new = 'const fs = require("fs");\nconst { applyProviderReasoningControls } = require("/home/box/sand-data/provider-maps.cjs");'
+        new = 'const fs = require("fs");\nconst {{ applyProviderReasoningControls }} = require({});'.format(json.dumps(maps_path))
         check_anchor(ht, old, "3c-require")
         ht = ht.replace(old, new)
         old = "      const url = completionsUrl(self.baseUrl);"
@@ -170,7 +170,8 @@ def main():
 
     print("== patching ==")
     new_ht = patch_host(ht)
-    new_hp = patch_hop(hp)
+    maps_path = os.path.dirname(args.hop).replace("\\", "/") + "/provider-maps.cjs"
+    new_hp = patch_hop(hp, maps_path)
     if new_ht == ht and new_hp == hp:
         print("  no changes needed (already patched)")
 
@@ -197,7 +198,7 @@ def main():
         print(f"  [hop]  {args.hop} patched")
 
     # provider-maps.cjs must exist next to the hop
-    maps_dir = os.path.join(os.path.dirname(args.hop), "provider-maps.cjs")
+    maps_dir = maps_path
     if not os.path.exists(maps_dir) and os.path.exists(args.maps):
         shutil.copy2(args.maps, maps_dir)
         print(f"  [maps] {maps_dir} written")

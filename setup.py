@@ -119,7 +119,7 @@ def main():
     head("wire")
 
     # 3a. bindings
-    bind_path = bpath or (gb / "model-bindings.json" if gb else HERE.parent / "model-bindings.json")
+    bind_path = bpath or (gb / "model-bindings.json" if gb else HERE / "model-bindings.json")
     if bpath:
         say("g", "adopt", f"using your existing bindings at {bpath} — picker edits will update THEM")
     if not bdata:
@@ -183,7 +183,7 @@ def main():
             else: subprocess.run(["xdg-open", f"http://127.0.0.1:{port}"])
         except Exception: pass
     else:
-        say("r", "picker", "didn't come up — check console output above")
+        say("r", "picker", "didn't come up — run python tools/model-picker.py manually to see the error")
 
     head("done")
     print("""Your setup is live. From here:

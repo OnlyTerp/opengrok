@@ -8,7 +8,7 @@
 
 Security: keys NEVER enter bindings; Test button probes from THIS machine only.
 """
-import argparse, json, os, time, urllib.request
+import argparse, json, os, time, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,19 +51,10 @@ def fetch_models(hop):
     def direct():
         with urllib.request.urlopen(hop.rstrip("/") + "/health", timeout=6) as r:
             return json.loads(r.read().decode())
-    def via_relay():
-        # ask the box to push its own health json to the file relay, then read it back
-        import urllib.parse
-        push_url = RELAY.rstrip("/") + "/push/hop-health.json"
-        body = ("curl -s -m 8 http://127.0.0.1:18786/health -o /tmp/hh.json && "
-                "curl -s -m 15 -X POST --data-binary @/tmp/hh.json " + push_url).encode()
-        # we cannot type into the box from here — use the relay's pull side instead:
-        raise FileNotFoundError("relay-typed fallback needs typed channel; use direct or seed snapshot")
-    for fn in (direct,):
-        try:
-            h = fn(); break
-        except Exception:
-            h = None
+    try:
+        h = direct()
+    except Exception:
+        h = None
     if h is None:
         seeded = os.path.join(HERE, "hop-health-snapshot.json")
         try: h = json.load(open(seeded, encoding="utf-8"))
@@ -182,7 +173,17 @@ class H(BaseHTTPRequestHandler):
         b = json.dumps(obj).encode()
         self.send_response(code); self.send_header("Content-Type","application/json")
         self.send_header("Content-Length",str(len(b))); self.end_headers(); self.wfile.write(b)
+    def _origin_ok(self):
+        origin = self.headers.get("Origin")
+        host = (self.headers.get("Host") or "").split(":")[0]
+        if host not in ("127.0.0.1", "localhost"):
+            return False
+        if origin:
+            oh = urllib.parse.urlparse(origin).hostname
+            return oh in ("127.0.0.1", "localhost")
+        return True
     def do_GET(self):
+        if not self._origin_ok(): return self._j(403, {"err":"forbidden origin"})
         if self.path == "/":
             b = PAGE.encode(); self.send_response(200)
             self.send_header("Content-Type","text/html"); self.send_header("Content-Length",str(len(b)))
@@ -197,6 +198,7 @@ class H(BaseHTTPRequestHandler):
             self.end_headers(); self.wfile.write(b)
         else: self._j(404, {"err":"nf"})
     def do_POST(self):
+        if not self._origin_ok(): return self._j(403, {"err":"forbidden origin"})
         n = int(self.headers.get("Content-Length") or 0)
         try: req = json.loads(self.rfile.read(n))
         except Exception: return self._j(400, {"err":"bad json"})

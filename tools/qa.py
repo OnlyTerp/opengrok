@@ -10,13 +10,11 @@ Runs the checks a reviewer would run by hand, so PRs stay honest:
   4. map tests green (if node available)
 """
 import json, re, shutil, subprocess, sys
-
-def shutil_which():
-    return shutil.which("node")
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent   # repo root
 fails, warns = [], []
+node = shutil.which("node")
 
 # 1a. python compiles
 for p in sorted(HERE.rglob("*.py")):
@@ -27,7 +25,6 @@ for p in sorted(HERE.rglob("*.py")):
         fails.append(f"compile: {p.name}: {r.stderr[-120:]}")
 
 # 1b. cjs syntax
-node = shutil_which()
 for p in sorted(HERE.rglob("*.cjs")):
     if not node:
         warns.append("node not found - cjs syntax unchecked")
@@ -53,6 +50,12 @@ for md in sorted(HERE.rglob("*.md")):
 # 3. leak scan
 IPV4 = re.compile(r"\b(?!127\.0\.0\.1|0\.0\.0\.0)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b")
 KEYISH = re.compile(r"\b(sk|xai|Bearer|hsk|ak)[-_][A-Za-z0-9]{16,}\b", re.I)
+def is_private(ip):
+    octets = [int(x) for x in ip.split(".")]
+    return (octets[0] == 10 or octets[:2] == [192, 168] or
+            octets[0] == 172 and 16 <= octets[1] <= 31 or
+            octets[0] == 100 and 64 <= octets[1] <= 127)
+
 for p in sorted(x for x in HERE.rglob("*") if x.is_file()):
     if p.suffix in (".png", ".ico"):
         continue
@@ -62,14 +65,13 @@ for p in sorted(x for x in HERE.rglob("*") if x.is_file()):
         continue
     for m in IPV4.finditer(txt):
         ip = m.group(1)
-        if ip.startswith(("10.", "192.168.", "172.", "100.")) and not ip.startswith("127."):
+        if is_private(ip):
             fails.append(f"private-IP leak in {p.relative_to(HERE)}: {ip}")
     if p.suffix in (".py", ".cjs"):
         for m in KEYISH.finditer(txt):
             fails.append(f"key-shaped string in {p.relative_to(HERE)}: {m.group(0)[:24]}")
 
 # 4. map tests
-node = shutil_which()
 if node:
     r = subprocess.run([node, str(HERE / "tools" / "test-provider-maps.cjs")], capture_output=True, text=True)
     tail = ((r.stdout or "").strip().splitlines() or ["?"])[-1]
