@@ -55,4 +55,19 @@ assert.equal(msgs[1].role, "tool");
 assert.equal(msgs[1].tool_call_id, "tc1");
 assert.equal(msgs[1].content, "done");
 
+var effortBinding = {
+  parameters: [{ id: "effort", value: "high" }],
+  effortWhen: {
+    medium: ["run_native_sot", "post_screen.py", "backtest_results"],
+  },
+};
+var researchParams = h.resolveParametersForTurn(effortBinding, [
+  { role: "user", content: "read LEDGER.tsv and mills.yaml" },
+]);
+var analyzeParams = h.resolveParametersForTurn(effortBinding, [
+  { role: "user", content: "now run_native_sot.py with the session config" },
+]);
+assert.equal(researchParams.filter(function (p) { return p.id === "effort"; })[0].value, "high");
+assert.equal(analyzeParams.filter(function (p) { return p.id === "effort"; })[0].value, "medium");
+
 console.log("opengrok-runtime: ok");

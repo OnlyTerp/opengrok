@@ -66,6 +66,54 @@ function requestedModelId(args) {
   return "";
 }
 
+function cloneParameters(params) {
+  if (!Array.isArray(params)) return [];
+  return params.map(function (p) {
+    if (!p || typeof p !== "object") return p;
+    return { id: p.id, value: p.value };
+  });
+}
+
+function setParamValue(params, id, value) {
+  var out = cloneParameters(params);
+  var replaced = false;
+  for (var i = 0; i < out.length; i++) {
+    if (out[i] && out[i].id === id) {
+      out[i] = { id: id, value: value };
+      replaced = true;
+    }
+  }
+  if (!replaced) out.push({ id: id, value: value });
+  return out;
+}
+
+function matchesEffortWhen(messages, patterns) {
+  if (!Array.isArray(patterns) || !patterns.length) return false;
+  var tail = Array.isArray(messages) ? messages.slice(-10) : [];
+  var blob = JSON.stringify(tail).toLowerCase();
+  for (var i = 0; i < patterns.length; i++) {
+    var p = String(patterns[i]).toLowerCase();
+    if (p && blob.indexOf(p) >= 0) return true;
+  }
+  return false;
+}
+
+function resolveParametersForTurn(binding, messages) {
+  var base = cloneParameters(binding && binding.parameters);
+  var effortWhen = binding && binding.effortWhen;
+  if (!effortWhen || typeof effortWhen !== "object") return base;
+  var keys = Object.keys(effortWhen);
+  for (var k = 0; k < keys.length; k++) {
+    var effort = keys[k];
+    var patterns = effortWhen[effort];
+    if (matchesEffortWhen(messages, patterns)) {
+      log("effortWhen -> effort=" + effort + " (patterns matched in tail context)");
+      return setParamValue(base, "effort", effort);
+    }
+  }
+  return base;
+}
+
 function dumpProto(stock) {
   var proto = stock && typeof stock === "object" ? Object.getPrototypeOf(stock) : null;
   var own = stock && typeof stock === "object" ? Object.getOwnPropertyNames(stock) : [];
@@ -340,7 +388,7 @@ function buildAssistantResponseContent(out, text, calls) {
   return content.length ? content : "";
 }
 
-function hopFullStream(exec, hopSess, ctx, invocationId, tools, options2) {
+function hopFullStream(exec, hopSess, binding, ctx, invocationId, tools, options2) {
   var settled = { u: false, e: false, m: false, i: false, r: false };
   var resU, rejU, resE, rejE, resM, rejM, resI, rejI, resR, rejR;
   var usage = swallow(new Promise(function (res, rej) { resU = res; rejU = rej; }));
@@ -390,9 +438,43 @@ function hopFullStream(exec, hopSess, ctx, invocationId, tools, options2) {
         tools: toOpenAITools(tools),
         max_tokens: (options2 && options2.maxTokens != null) ? options2.maxTokens : 8192,
       };
+      hopSess.parameters = resolveParametersForTurn(binding, turn.messages);
       log("stream messages=" + turn.messages.length + " tools=" + ((turn.tools && turn.tools.length) || 0));
       log("[opengrok-debug] stream start " + debugId + " inMsgs=" + turn.messages.length + " tools=" + ((turn.tools && turn.tools.length) || 0));
-      var out = await hopSess.runTurn(turn);
+      var out = null;
+      var useStream = hopSess.streamHop && process.env.OPENGROK_STREAM_HOP !== "0";
+      if (useStream && typeof hopSess.runTurnStream === "function") {
+        var queue = [];
+        var waiters = [];
+        var streamDone = false;
+        var streamErr = null;
+        function pushEv(ev) {
+          queue.push(ev);
+          while (waiters.length) waiters.shift()();
+        }
+        var streamPromise = hopSess.runTurnStream(turn, pushEv).then(function (o) {
+          out = o;
+          streamDone = true;
+          while (waiters.length) waiters.shift()();
+        }, function (e) {
+          streamErr = e;
+          streamDone = true;
+          while (waiters.length) waiters.shift()();
+        });
+        while (!streamDone || queue.length) {
+          if (queue.length) {
+            var ev = queue.shift();
+            if (ev.type === "reasoning") yield { type: "reasoning", textDelta: ev.textDelta };
+            else if (ev.type === "text") yield { type: "text-delta", textDelta: ev.textDelta };
+          } else if (!streamDone) {
+            await new Promise(function (res) { waiters.push(res); });
+          }
+        }
+        await streamPromise;
+        if (streamErr) throw streamErr;
+      } else {
+        out = await hopSess.runTurn(turn);
+      }
       var text = (out && out.content) || "";
       var calls = normalizeApiToolCalls((out && out.tool_calls) || []);
       var embedded = extractEmbeddedStreamJson(text);
@@ -418,10 +500,10 @@ function hopFullStream(exec, hopSess, ctx, invocationId, tools, options2) {
       if (embedded.calls.length) {
         log("[opengrok-debug] embedded tool calls parsed=" + embedded.calls.length + " " + debugId);
       }
-      if (out && out.reasoning_content) {
+      if (!useStream && out && out.reasoning_content) {
         yield { type: "reasoning", textDelta: out.reasoning_content };
       }
-      if (text) yield { type: "text-delta", textDelta: text };
+      if (!useStream && text) yield { type: "text-delta", textDelta: text };
       for (var i = 0; i < calls.length; i++) {
         yield parseHopToolCall(calls[i], i);
       }
@@ -474,12 +556,12 @@ function hopFullStream(exec, hopSess, ctx, invocationId, tools, options2) {
   };
 }
 
-function wrapExecutor(exec, hopSess) {
+function wrapExecutor(exec, hopSess, binding) {
   return new Proxy(exec, {
     get: function (target, prop, receiver) {
       if (prop === "stream") {
         return function (ctx, invocationId, tools, options2) {
-          return hopFullStream(target, hopSess, ctx, invocationId, tools, options2);
+          return hopFullStream(target, hopSess, binding, ctx, invocationId, tools, options2);
         };
       }
       var val = Reflect.get(target, prop, receiver);
@@ -493,7 +575,7 @@ function wrapPromptSession(inner, hopSess, binding, middleware) {
   return {
     getExecutor: function (state) {
       var raw = inner.getExecutor(state);
-      var hopExec = wrapExecutor(raw, hopSess);
+      var hopExec = wrapExecutor(raw, hopSess, binding);
       return middleware ? middleware(hopExec) : hopExec;
     },
     getModelId: function () {
@@ -569,5 +651,6 @@ module.exports = {
     buildAssistantResponseContent: buildAssistantResponseContent,
     toOpenAIMessages: toOpenAIMessages,
     parseHopToolCall: parseHopToolCall,
+    resolveParametersForTurn: resolveParametersForTurn,
   },
 };
