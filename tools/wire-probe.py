@@ -55,7 +55,7 @@ def main():
     if not key and a.key_env: print(f"!! --key-env {a.key_env} not set; trying keyless")
 
     slug = a.model.replace("/", "_").replace(":", "-")
-    outdir = HERE / "wire-captures" / slug
+    outdir = HERE.parent / "wire-captures" / slug
     outdir.mkdir(parents=True, exist_ok=True)
     log = []
 
