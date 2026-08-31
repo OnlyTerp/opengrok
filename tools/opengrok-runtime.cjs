@@ -372,14 +372,18 @@ function hopFullStream(exec, hopSess, ctx, invocationId, tools, options2) {
     if (!settled.i) { settled.i = true; resI(invocationId || (crypto.randomUUID && crypto.randomUUID()) || "opengrok"); }
   }
 
-  if (ctx && ctx.signal) {
-    if (ctx.signal.aborted) hopSess.abort();
-    else ctx.signal.addEventListener("abort", function () { hopSess.abort(); });
+  var abortListener = null;
+  if (ctx && ctx.signal && !ctx.signal.aborted) {
+    abortListener = function () { hopSess.abort(); };
+    ctx.signal.addEventListener("abort", abortListener);
   }
 
   var fullStream = (async function* () {
     var debugId = "turn-" + Date.now().toString(36);
     try {
+      if (ctx && ctx.signal && ctx.signal.aborted) {
+        throw new Error("openai-hop-session: aborted");
+      }
       var msgs = typeof exec.getMessages === "function" ? exec.getMessages() : [];
       var turn = {
         messages: toOpenAIMessages(msgs),
@@ -453,6 +457,10 @@ function hopFullStream(exec, hopSess, ctx, invocationId, tools, options2) {
       failAll(err);
       yield { type: "error", error: err };
       throw err;
+    } finally {
+      if (abortListener && ctx && ctx.signal) {
+        ctx.signal.removeEventListener("abort", abortListener);
+      }
     }
   })();
 
@@ -556,7 +564,6 @@ module.exports = {
   resolveBinding: resolveBinding,
   collectIds: collectIds,
   completionsUrl: hop.completionsUrl,
-  // exercised by tools/test-opengrok-runtime.cjs — not a stable public API
   _testHooks: {
     extractEmbeddedStreamJson: extractEmbeddedStreamJson,
     buildAssistantResponseContent: buildAssistantResponseContent,

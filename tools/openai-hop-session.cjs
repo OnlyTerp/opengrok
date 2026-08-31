@@ -43,7 +43,7 @@ function applyMaps(body, ctx) {
   }
 }
 
-function postJson(urlStr, body, headers, timeoutMs) {
+function postJson(urlStr, body, headers, timeoutMs, session) {
   return new Promise(function (resolve, reject) {
     var u = new URL(urlStr);
     var lib = u.protocol === "https:" ? https : http;
@@ -70,11 +70,22 @@ function postJson(urlStr, body, headers, timeoutMs) {
         resolve({ status: res.statusCode, raw: raw, json: json });
       });
     });
+    if (session) session._activeReq = req;
     req.setTimeout(timeoutMs || 180000, function () {
       req.destroy();
       reject(new Error("openai-hop-session: upstream timeout"));
     });
-    req.on("error", reject);
+    req.on("error", function (err) {
+      if (session && session._activeReq === req) session._activeReq = null;
+      if (err && (err.code === "ECONNRESET" || err.message === "aborted")) {
+        reject(new Error("openai-hop-session: aborted"));
+        return;
+      }
+      reject(err);
+    });
+    req.on("close", function () {
+      if (session && session._activeReq === req) session._activeReq = null;
+    });
     req.write(payload);
     req.end();
   });
@@ -102,12 +113,20 @@ function OpenAiHopSession(opts) {
   this.baseUrl = opts.baseUrl || opts.openaiBaseUrl || opts.hopBaseUrl;
   this.apiKey = opts.apiKey || process.env.API_SERVER_KEY || "";
   this.allowTestVisibleRecovery = opts.allowTestVisibleRecovery === true;
-  this._aborted = false;
+  this._turnGen = 0;
+  this._cancelNext = false;
+  this._activeReq = null;
   this.opengrok = true;
 }
 
 OpenAiHopSession.prototype.abort = function abort() {
-  this._aborted = true;
+  this._turnGen++;
+  if (this._activeReq) {
+    this._activeReq.destroy();
+    this._activeReq = null;
+  } else {
+    this._cancelNext = true;
+  }
 };
 
 OpenAiHopSession.prototype.getThinkingDetails = function getThinkingDetails() {
@@ -141,12 +160,16 @@ OpenAiHopSession.prototype._body = function _body(turn) {
 };
 
 OpenAiHopSession.prototype.runTurn = function runTurn(turn) {
-  if (this._aborted) return Promise.reject(new Error("openai-hop-session: aborted"));
+  if (this._cancelNext) {
+    this._cancelNext = false;
+    return Promise.reject(new Error("openai-hop-session: aborted"));
+  }
   var self = this;
+  var gen = this._turnGen;
   var body = this._body(turn);
   var url = completionsUrl(this.baseUrl);
-  return postJson(url, body, this._headers(), 180000).then(function (res) {
-    if (self._aborted) throw new Error("openai-hop-session: aborted");
+  return postJson(url, body, this._headers(), 180000, this).then(function (res) {
+    if (self._turnGen !== gen) throw new Error("openai-hop-session: aborted");
     if (res.status < 200 || res.status >= 300) {
       var msg = "openai-hop-session: HTTP " + res.status;
       if (res.raw) msg += " " + res.raw.slice(0, 300);

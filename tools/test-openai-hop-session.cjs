@@ -55,6 +55,47 @@ function liveServer() {
       assert.equal(sawContentType, true, "Content-Type must be set (empty 200 otherwise)");
       assert.equal(sawThinkingOff, true, "GLM fast should set thinking.disabled");
       server.close();
+      abortRecoverTest();
+    }).catch(function (err) {
+      server.close();
+      console.error(err);
+      process.exit(1);
+    });
+  });
+}
+
+function abortRecoverTest() {
+  var server = http.createServer(function (req, res) {
+    var chunks = [];
+    req.on("data", function (c) { chunks.push(c); });
+    req.on("end", function () {
+      setTimeout(function () {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          id: "recover",
+          choices: [{ index: 0, message: { role: "assistant", content: "RECOVER_OK" }, finish_reason: "stop" }],
+        }));
+      }, 30);
+    });
+  });
+  server.listen(0, "127.0.0.1", function () {
+    var port = server.address().port;
+    var s = hop.createOpenAiHopSession({
+      modelId: "glm-5.3-flash",
+      baseUrl: "http://127.0.0.1:" + port + "/v1",
+    });
+    var inflight = s.runTurn({ messages: [{ role: "user", content: "slow" }] });
+    s.abort();
+    inflight.then(function () {
+      server.close();
+      console.error("in-flight abort should reject");
+      process.exit(1);
+    }, function (err) {
+      assert.ok(/aborted/.test(err.message));
+      return s.runTurn({ messages: [{ role: "user", content: "again" }] });
+    }).then(function (out) {
+      assert.equal(out.content, "RECOVER_OK");
+      server.close();
       console.log("openai-hop-session: ok");
     }).catch(function (err) {
       server.close();
