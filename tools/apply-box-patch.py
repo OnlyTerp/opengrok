@@ -135,6 +135,11 @@ def patch_hop(ht, maps_path):
         ht = ht.replace(old, new)
     # else: already patched
     # 3c: require map + apply in stream
+    legacy = 'require("/home/box/sand-data/provider-maps.cjs")'
+    correct = 'require({})'.format(json.dumps(maps_path))
+    if legacy in ht and legacy != correct:
+        check_anchor(ht, legacy, "3c-migrate")
+        ht = ht.replace(legacy, correct)
     if "applyProviderReasoningControls" not in ht:
         old = 'const fs = require("fs");'
         new = 'const fs = require("fs");\nconst {{ applyProviderReasoningControls }} = require({});'.format(json.dumps(maps_path))
@@ -170,7 +175,7 @@ def main():
 
     print("== patching ==")
     new_ht = patch_host(ht)
-    maps_path = os.path.dirname(args.hop).replace("\\", "/") + "/provider-maps.cjs"
+    maps_path = os.path.abspath(os.path.join(os.path.dirname(args.hop), "provider-maps.cjs")).replace("\\", "/")
     new_hp = patch_hop(hp, maps_path)
     if new_ht == ht and new_hp == hp:
         print("  no changes needed (already patched)")
