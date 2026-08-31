@@ -7,7 +7,7 @@ Runs the checks a reviewer would run by hand, so PRs stay honest:
   1. every .py compiles, every .cjs passes node --check, every .json parses
   2. every docs/README cross-reference resolves to a real file
   3. leak scan: no tailnet/private IPs, no key-shaped strings in code
-  4. map tests green (if node available)
+  4. map tests + stock-host wrap + hop session tests
 """
 import json, re, shutil, subprocess, sys
 
@@ -68,17 +68,22 @@ for p in sorted(x for x in HERE.rglob("*") if x.is_file()):
         for m in KEYISH.finditer(txt):
             fails.append(f"key-shaped string in {p.relative_to(HERE)}: {m.group(0)[:24]}")
 
-# 4. map tests
+def run_named(label, cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    tail = ((r.stdout or "").strip().splitlines() or ((r.stderr or "").strip().splitlines()) or ["?"])[-1]
+    if r.returncode:
+        fails.append(f"{label}: {tail}")
+    else:
+        print(f"{label}: {tail}")
+
 node = shutil_which()
 if node:
-    r = subprocess.run([node, str(HERE / "tools" / "test-provider-maps.cjs")], capture_output=True, text=True)
-    tail = ((r.stdout or "").strip().splitlines() or ["?"])[-1]
-    if r.returncode:
-        fails.append(f"map tests: {tail}")
-    else:
-        print(f"map tests: {tail}")
+    run_named("map tests", [node, str(HERE / "tools" / "test-provider-maps.cjs")])
+    run_named("hop-session tests", [node, str(HERE / "tools" / "test-openai-hop-session.cjs")])
 else:
-    warns.append("node not found - map tests skipped")
+    warns.append("node not found - js tests skipped")
+
+run_named("wrap tests", [sys.executable, str(HERE / "tools" / "test-wrap-proto-session.py")])
 
 print()
 for w in warns:

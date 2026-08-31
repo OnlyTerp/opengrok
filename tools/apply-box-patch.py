@@ -1,37 +1,13 @@
 #!/usr/bin/env python3
-"""apply-box-patch — install the binding consumer into a stock Grok Bot cloud host.
+"""apply-box-patch — install the binding consumer into a *private* OpenAI-hop host.
 
-THE MISSING STEP (opengrok#1): saving a binding and pushing model-bindings.json
-to the box is NOT enough. Stock `sand-host/host-main.cjs` has zero
-`hopBaseUrl` / `model-bindings.json` symbols — it never reads bindings, so a
-saved hop binding is silently ignored and the agent falls back to its original
-model. This tool applies the surgical, anchored patch that makes the live host
-consume bindings and route normal chat turns through the configured hop.
+Stock Grok Bot 0.30 cloud hosts do not contain this lane (issues #3, #5):
+`createOpenAiHopSession`, `resolvedOpenaiBaseUrl`, and `openai-hop-session.cjs`
+are all absent. If census shows those symbols missing, stop and use
+`tools/install-stock-box.py` instead. See docs/STOCK-HOST.md.
 
-Run ON the box (as the box user, from /home/box/sand-data once you have a
-shell), or point --host/--hop/--bindings at the files if paths differ:
-
-    python3 apply-box-patch.py --host /home/box/sand-host/host-main.cjs \
-                               --hop  /home/box/sand-data/openai-hop-session.cjs \
-                               --bindings /home/box/sand-data/model-bindings.json \
-                               --maps /home/box/sand-data/provider-maps.cjs
-
-Idempotent: safe to re-run; anchors are asserted (count==1) so a changed
-upstream bundle fails loudly instead of silently half-patching.
-
-What it does (all anchored, byte-surgical — never a blind sed):
-  HOST patch 1a/1b/1c — read maxMode + parameters off the binding entry and
-      carry them into the main session options (drops the dead skipLabeling
-      spread on the MAIN lane; the summarization lane is left untouched).
-  HOST patch 2      — forward maxMode/parameters into createOpenAiHopSession.
-  HOP  patch 3a/3a2 — createOpenAiHopSession + executor accept maxMode/parameters.
-  HOP  patch 3c     — require provider-maps.cjs and call applyProviderReasoningControls
-      right before building the completions URL (localQwen lane excluded).
-  Writes provider-maps.cjs next to the hop if missing (from --maps).
-  Backs everything up first (timestamped dir), syntax-checks before AND after.
-
-After applying: bounce the host process (NOT a raw kill — supervisor-safe),
-then verify a normal chat turn hits the hop port. See docs/CLOUD-HOST.md.
+This script remains for hosts that already have the private OpenAI hop session.
+It is anchored and fails closed when those anchors drift.
 """
 import argparse, json, os, re, shutil, subprocess, sys, time
 
@@ -60,14 +36,11 @@ def node_check(path):
 
 def patch_host(ht):
     h0 = ht
-    # 1a: declare resolved maxMode/parameters
     old = "let resolvedTopLevelModelId = host.subagentModelId;\n        let resolvedOpenaiBaseUrl = void 0;"
     new = old + "\n        let resolvedTopLevelMaxMode = void 0;\n        let resolvedTopLevelParameters = void 0;"
     if old in ht and "let resolvedTopLevelMaxMode = void 0;" not in ht:
         check_anchor(ht, old, "1a")
         ht = ht.replace(old, new)
-    # else: already patched
-    # 1b: read maxMode/parameters off the binding entry
     old = "resolvedTopLevelModelId = __entry.modelId;"
     new = """resolvedTopLevelModelId = __entry.modelId;
                   if (typeof __entry.maxMode === "boolean") {
@@ -79,15 +52,12 @@ def patch_host(ht):
     if old in ht and 'typeof __entry.maxMode === "boolean"' not in ht:
         check_anchor(ht, old, "1b")
         ht = ht.replace(old, new)
-    # else: already patched
-    # 1c: carry into the MAIN sessionOptions spread (skip the summarization one)
     main_spread = """...resolvedOpenaiBaseUrl != null ? { openaiBaseUrl: resolvedOpenaiBaseUrl, provenanceAgentId: host.getConversationId(), skipLabeling: true } : {},"""
     main_repl = """...resolvedOpenaiBaseUrl != null ? { openaiBaseUrl: resolvedOpenaiBaseUrl, provenanceAgentId: host.getConversationId() } : {},
           ...resolvedOpenaiBaseUrl != null && resolvedTopLevelParameters != null ? { parameters: resolvedTopLevelParameters } : {},
           ...resolvedOpenaiBaseUrl != null && resolvedTopLevelMaxMode != null ? { maxMode: resolvedTopLevelMaxMode } : {},"""
     n = ht.count(main_spread)
     if n == 1:
-        # already patched (main spread replaced; only summarization one remains)
         pass
     elif n == 2:
         idx = ht.find(main_spread)
@@ -102,7 +72,6 @@ def patch_host(ht):
             die("1c did not change anything")
     else:
         die(f"anchor 1c count={n} (expected 1 or 2: main + summarization spreads)")
-    # 2: forward into createOpenAiHopSession
     old = """requestKind: sessionOptions.isSummarizationSession ? "summarization" : "main"
           });"""
     new = """requestKind: sessionOptions.isSummarizationSession ? "summarization" : "main",
@@ -112,12 +81,9 @@ def patch_host(ht):
     if old in ht:
         check_anchor(ht, old, "2")
         ht = ht.replace(old, new)
-    # else: already patched (anchor 2 replaced on a previous run)
     return ht
 
 def patch_hop(ht):
-    h0 = ht
-    # 3a: createOpenAiHopSession accepts maxMode/parameters
     old = "const requestKind = opts && opts.requestKind;\n  return {"
     new = """const requestKind = opts && opts.requestKind;
   const maxMode = (opts && opts.maxMode) === true;
@@ -126,15 +92,11 @@ def patch_hop(ht):
     if old in ht:
         check_anchor(ht, old, "3a")
         ht = ht.replace(old, new)
-    # else: already patched
-    # 3a2: executor ctor fields
     old = "this.allowTestVisibleRecovery = opts.allowTestVisibleRecovery === true;"
     new = old + "\n    this.maxMode = opts.maxMode === true;\n    this.parameters = Array.isArray(opts.parameters) ? opts.parameters : [];"
     if old in ht and "this.maxMode = opts.maxMode === true;" not in ht:
         check_anchor(ht, old, "3a2")
         ht = ht.replace(old, new)
-    # else: already patched
-    # 3c: require map + apply in stream
     if "applyProviderReasoningControls" not in ht:
         old = 'const fs = require("fs");'
         new = 'const fs = require("fs");\nconst { applyProviderReasoningControls } = require("/home/box/sand-data/provider-maps.cjs");'
@@ -150,18 +112,25 @@ def patch_hop(ht):
     return ht
 
 def main():
-    ap = argparse.ArgumentParser(description="Install the binding consumer into a stock Grok Bot cloud host.")
-    ap.add_argument("--host", default="/home/box/sand-host/host-main.cjs", help="path to live host-main.cjs")
-    ap.add_argument("--hop", default="/home/box/sand-data/openai-hop-session.cjs", help="path to openai-hop-session.cjs")
-    ap.add_argument("--bindings", default="/home/box/sand-data/model-bindings.json", help="path to model-bindings.json")
-    ap.add_argument("--maps", default="/home/box/sand-data/provider-maps.cjs", help="path to provider-maps.cjs (written if missing)")
-    ap.add_argument("--dry-run", action="store_true", help="print what would change without writing")
+    ap = argparse.ArgumentParser(description="Patch a private OpenAI-hop Grok Bot host. Stock hosts: install-stock-box.py")
+    ap.add_argument("--host", default="/home/box/sand-host/host-main.cjs")
+    ap.add_argument("--hop", default="/home/box/sand-data/openai-hop-session.cjs")
+    ap.add_argument("--bindings", default="/home/box/sand-data/model-bindings.json")
+    ap.add_argument("--maps", default="/home/box/sand-data/provider-maps.cjs")
+    ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    for p, label in ((args.host, "host"), (args.hop, "hop")):
-        if not os.path.exists(p):
-            die(f"{label} not found: {p}")
+    if not os.path.exists(args.host):
+        die(f"host not found: {args.host}")
     ht = read(args.host)
+    if "createOpenAiHopSession" not in ht or "resolvedOpenaiBaseUrl" not in ht:
+        die(
+            "this is a stock host (no createOpenAiHopSession / resolvedOpenaiBaseUrl). "
+            "apply-box-patch.py cannot install on it. Use tools/install-stock-box.py. "
+            "See docs/STOCK-HOST.md (issues #3, #5)."
+        )
+    if not os.path.exists(args.hop):
+        die(f"hop not found: {args.hop}")
     hp = read(args.hop)
 
     print("== checks ==")
@@ -196,7 +165,6 @@ def main():
         write(args.hop, new_hp)
         print(f"  [hop]  {args.hop} patched")
 
-    # provider-maps.cjs must exist next to the hop
     maps_dir = os.path.join(os.path.dirname(args.hop), "provider-maps.cjs")
     if not os.path.exists(maps_dir) and os.path.exists(args.maps):
         shutil.copy2(args.maps, maps_dir)
@@ -212,8 +180,7 @@ def main():
 DONE. Next steps (see docs/CLOUD-HOST.md):
   1. Bounce the host process (supervisor-safe, NOT a raw kill).
   2. Send a normal message in the bound Bot conversation.
-  3. Confirm the hop port sees the request (tcpdump/journal on the box, or the
-     hop's own access log). The picker's direct probe does NOT prove routing.
+  3. Confirm the hop port sees the request.
 """)
 
 if __name__ == "__main__":
