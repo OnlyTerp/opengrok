@@ -26,10 +26,13 @@ FALLBACK = {
   "qwen3.8-max": {"prov":"qwen"}, "local-qwen38-27b": {"prov":"local"},
   "local-qwen38-27b-aipc": {"prov":"local"}, "mimo-v2.5-pro-ultraspeed": {"prov":"custom"},
   "local-ornith-35b": {"prov":"local"},
+  "gpt-5.6-sol": {"prov":"codex-everywhere"}, "gpt-5.6-terra": {"prov":"codex-everywhere"},
+  "gpt-5.6-luna": {"prov":"codex-everywhere"}, "gpt-5.5": {"prov":"codex-everywhere"},
 }
 PROV_LABEL = {"grok":"xAI","anthropic":"Claude","gemini":"Gemini","glm":"GLM",
               "nanogpt":"DeepSeek","qwen":"Qwen","local":"Local","custom":"Custom",
-              "openai":"OpenAI","openrouter":"OpenRouter","ollama":"Ollama"}
+              "openai":"OpenAI","openrouter":"OpenRouter","ollama":"Ollama",
+              "codex-everywhere":"Codex Everywhere"}
 
 AI_PROMPT = """Configure Grok Bot model bindings. Return ONLY JSON: {"agents":{"<id>":{"name":str,"modelId":str,"provider":str,"hopBaseUrl":str,"parameters":[{"id":"effort","value":"low|medium|high|max"}],"maxMode":bool}}}
 Laws: no API keys ever | unknown wire behavior => omit parameters, never guess | xAI effort=xhigh-not-max | GLM effort=max-literal+thinks-by-default | deepseek-slug-owns-thinking
