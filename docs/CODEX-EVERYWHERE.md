@@ -10,14 +10,14 @@ Codex Everywhere URL. It never accepts an upstream URL or key from an incoming
 request.
 
 ```bash
-export CE_API_KEY='your-local-key'
 python3 tools/codex-everywhere-bridge.py \
+  --api-key-env CE_API_KEY \
   --base-url https://codex-everywhere.com \
   --port 18795
 ```
 
-Do not put a real key in the shell history, a binding file, or a repository.
-Use an OS-managed environment/secret launcher in persistent deployments.
+Provide `CE_API_KEY` through an OS-managed secret environment. Do not put a
+real key in shell history, a binding file, or a repository.
 
 Health check:
 

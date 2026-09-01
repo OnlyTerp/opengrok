@@ -134,11 +134,11 @@ Codex Everywhere is configured in OpenClaw as the OpenAI **Responses API**
 ships a local, dependency-free bridge for this protocol boundary:
 
 ```bash
-export CE_API_KEY='your-local-key'
-python3 tools/codex-everywhere-bridge.py --port 18795
+python3 tools/codex-everywhere-bridge.py \
+  --api-key-env CE_API_KEY --port 18795
 ```
 
-Keep the key in the environment or an OS secret store; never put it in
+Provide `CE_API_KEY` through an OS-managed secret environment; never put it in
 `model-bindings.json`. Bind a CE model to the bridge with
 `hopBaseUrl: "http://127.0.0.1:18795/v1"` and the exact model ID, for example
 `gpt-5.6-terra`. The bridge converts `/v1/chat/completions` into
