@@ -95,7 +95,7 @@ button.ghost:hover{color:var(--fg);border-color:var(--acc)}
 .agent:hover{border-color:#2e2e3c}
 .who{width:150px;min-width:150px}
 .who .nm{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.who .rt{font-size:11px;color:var(--mut)}
+.who .rt{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick{flex:1;display:flex;gap:8px;align-items:center}
 select.model{flex:1;-webkit-appearance:none;appearance:none;background:#0a0a0e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23776788' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--bd);border-radius:9px;color:var(--fg);padding:9px 30px 9px 12px;font-size:13.5px;cursor:pointer;outline:0;transition:border-color .15s}
 select.model:hover{border-color:var(--acc)}select.model:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,108,255,.15)}
@@ -123,7 +123,10 @@ let ST,MODELS=[];
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function show(t,c){const m=$("#msg");m.textContent=t;m.className=c||""}
-function provOf(m){return (MODELS.find(x=>x.model===m)||{}).route||"?"}
+function provOf(m){
+  const route=(MODELS.find(x=>x.model===m)||{}).route||"?";
+  return route==="?" && /^gpt-5(?:\.\d+)?/.test(m) ? "Codex Everywhere" : route;
+}
 async function boot(){
   const r=await(await fetch('/api/state')).json();ST=r;MODELS=r.models;
   $("#hopinfo").textContent=r.live?`${MODELS.length} models · live hop`:`${MODELS.length} models · catalog`;
@@ -135,7 +138,7 @@ async function boot(){
     const extra=MODELS.some(m=>m.model===cur)?"":(cur?[{model:cur,route:"saved"}]:[]);
     const opts=[...MODELS,...extra].map(m=>`<option value="${esc(m.model)}" ${m.model===cur?'selected':''} data-r="${esc(m.route)}">${esc(m.model)}</option>`).join("");
     return `<div class=agent data-id="${esc(id)}">
-      <div class=who><div class=nm>${esc(a.name||"(unnamed)")}</div><div class=rt>${esc(lane)}</div></div>
+      <div class=who><div class=nm>${esc(a.name||"(unnamed)")}</div><div class=rt>${esc(lane)}</div><div class=rt title="Agent ID">id ${esc(id)}</div></div>
       <div class=pick><select class=model>${opts}</select><span class="pill r" data-pill>${esc(provOf(cur))}</span></div>
       <button class=tbtn data-test>test</button>
     </div>`}).join("");
