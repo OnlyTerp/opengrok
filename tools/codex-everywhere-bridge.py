@@ -29,6 +29,7 @@ from typing import Any
 
 LOG = logging.getLogger("codex-everywhere-bridge")
 MAX_BODY = 16 * 1024 * 1024
+DEFAULT_MODELS = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5"]
 
 
 def responses_url(base_url: str) -> str:
@@ -250,7 +251,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path in ("/health", "/healthz"):
-            self.send_json(200, {"ok": True, "service": "codex-everywhere-bridge"})
+            self.send_json(200, {
+                "ok": True,
+                "service": "codex-everywhere-bridge",
+                "models": self.config["models"],
+            })
             return
         if self.path == "/v1/models":
             self.proxy_models()
@@ -372,7 +377,9 @@ def make_config(args) -> dict[str, Any]:
     api_key = os.environ.get(args.api_key_env, "").strip()
     if not api_key:
         raise SystemExit(f"{args.api_key_env} is required; the value is never read from a request")
-    return {"base_url": base_url, "api_key": api_key, "timeout": args.timeout}
+    raw_models = os.environ.get("CE_MODELS", "")
+    models = [model.strip() for model in raw_models.split(",") if model.strip()] or DEFAULT_MODELS
+    return {"base_url": base_url, "api_key": api_key, "models": models, "timeout": args.timeout}
 
 
 def main() -> None:
