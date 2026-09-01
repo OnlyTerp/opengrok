@@ -70,4 +70,21 @@ var analyzeParams = h.resolveParametersForTurn(effortBinding, [
 assert.equal(researchParams.filter(function (p) { return p.id === "effort"; })[0].value, "high");
 assert.equal(analyzeParams.filter(function (p) { return p.id === "effort"; })[0].value, "medium");
 
+var compaction = h.compactionConfig({
+  contextWindow: 131072,
+  compactionFraction: 0.9,
+  earlyCompactionFraction: 0.9,
+  supportsSelfSummary: true,
+});
+assert.equal(compaction.compactionThreshold, 117964);
+assert.equal(compaction.earlyCompactionThreshold, 117964);
+assert.equal(compaction.supportsSelfSummary, true);
+
+var cache = h.extractUsageExtras({
+  prompt_tokens: 1000,
+  prompt_tokens_details: { cached_tokens: 900, cache_creation_input_tokens: 50 },
+});
+assert.equal(cache.cacheReadTokens, 900);
+assert.equal(cache.cacheWriteTokens, 50);
+
 console.log("opengrok-runtime: ok");

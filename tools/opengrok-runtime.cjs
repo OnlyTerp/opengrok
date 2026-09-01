@@ -5,6 +5,58 @@ var hop = require("./openai-hop-session.cjs");
 var BINDINGS = process.env.OPENGROK_BINDINGS || "/home/box/sand-data/model-bindings.json";
 var LOG = process.env.OPENGROK_LOG || "/tmp/opengrok-session.log";
 
+var DEFAULT_CONTEXT_WINDOW = (function () {
+  var n = parseInt(process.env.OPENGROK_CONTEXT_WINDOW || "131072", 10);
+  return n > 0 ? n : 131072;
+})();
+var DEFAULT_COMPACTION_FRACTION = (function () {
+  var n = parseFloat(process.env.OPENGROK_COMPACTION_FRACTION || "0.9");
+  return n > 0 && n <= 1 ? n : 0.9;
+})();
+var DEFAULT_EARLY_COMPACTION_FRACTION = (function () {
+  var n = parseFloat(process.env.OPENGROK_EARLY_COMPACTION_FRACTION || "0.9");
+  return n > 0 && n <= 1 ? n : 0.9;
+})();
+
+function compactionConfig(binding) {
+  var ctxWin = binding && binding.contextWindow;
+  if (typeof ctxWin !== "number" || !Number.isFinite(ctxWin) || ctxWin <= 0) {
+    ctxWin = DEFAULT_CONTEXT_WINDOW;
+  }
+  var compFrac = binding && binding.compactionFraction;
+  if (typeof compFrac !== "number" || !Number.isFinite(compFrac) || compFrac <= 0 || compFrac > 1) {
+    compFrac = DEFAULT_COMPACTION_FRACTION;
+  }
+  var earlyFrac = binding && binding.earlyCompactionFraction;
+  if (typeof earlyFrac !== "number" || !Number.isFinite(earlyFrac) || earlyFrac <= 0 || earlyFrac > 1) {
+    earlyFrac = DEFAULT_EARLY_COMPACTION_FRACTION;
+  }
+  var supports = binding && binding.supportsSelfSummary === false ? false : true;
+  return {
+    contextWindow: ctxWin,
+    compactionThreshold: Math.floor(ctxWin * compFrac),
+    earlyCompactionThreshold: Math.floor(ctxWin * earlyFrac),
+    supportsSelfSummary: supports,
+  };
+}
+
+function extractUsageExtras(rawUsage) {
+  var cacheRead = 0;
+  var cacheWrite = 0;
+  if (rawUsage && typeof rawUsage === "object") {
+    var details = rawUsage.prompt_tokens_details;
+    if (details && typeof details === "object") {
+      if (typeof details.cached_tokens === "number" && details.cached_tokens > 0) {
+        cacheRead = details.cached_tokens;
+      }
+      if (typeof details.cache_creation_input_tokens === "number" && details.cache_creation_input_tokens > 0) {
+        cacheWrite = details.cache_creation_input_tokens;
+      }
+    }
+  }
+  return { cacheReadTokens: cacheRead, cacheWriteTokens: cacheWrite };
+}
+
 function log(line) {
   try {
     fs.appendFileSync(LOG, new Date().toISOString() + " " + line + "\n");
@@ -52,11 +104,23 @@ function resolveBinding(args) {
     return null;
   }
   var ids = collectIds(args);
+  var match = null;
   for (var i = 0; i < ids.length; i++) {
-    if (agents[ids[i]]) return agents[ids[i]];
+    if (agents[ids[i]]) {
+      match = agents[ids[i]];
+      break;
+    }
   }
-  if (agents["*"]) return agents["*"];
-  return null;
+  if (!match && agents["*"]) match = agents["*"];
+  if (!match) return null;
+  var star = agents["*"];
+  if (!star || star === match) return match;
+  var merged = {};
+  var keys = Object.keys(star);
+  for (var k = 0; k < keys.length; k++) merged[keys[k]] = star[keys[k]];
+  keys = Object.keys(match);
+  for (var j = 0; j < keys.length; j++) merged[keys[j]] = match[keys[j]];
+  return merged;
 }
 
 function requestedModelId(args) {
@@ -388,7 +452,7 @@ function buildAssistantResponseContent(out, text, calls) {
   return content.length ? content : "";
 }
 
-function hopFullStream(exec, hopSess, binding, ctx, invocationId, tools, options2) {
+function hopFullStream(exec, hopSess, binding, compaction, ctx, invocationId, tools, options2) {
   var settled = { u: false, e: false, m: false, i: false, r: false };
   var resU, rejU, resE, rejE, resM, rejM, resI, rejI, resR, rejR;
   var usage = swallow(new Promise(function (res, rej) { resU = res; rejU = rej; }));
@@ -411,9 +475,9 @@ function hopFullStream(exec, hopSess, binding, ctx, invocationId, tools, options
       resE({
         inputTokens: u.promptTokens || 0,
         outputTokens: u.completionTokens || 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        maxTokens: 0,
+        cacheReadTokens: u.cacheReadTokens || 0,
+        cacheWriteTokens: u.cacheWriteTokens || 0,
+        maxTokens: compaction.contextWindow,
       });
     }
     if (!settled.m) { settled.m = true; resM(undefined); }
@@ -440,7 +504,7 @@ function hopFullStream(exec, hopSess, binding, ctx, invocationId, tools, options
       };
       hopSess.parameters = resolveParametersForTurn(binding, turn.messages);
       log("stream messages=" + turn.messages.length + " tools=" + ((turn.tools && turn.tools.length) || 0));
-      log("[opengrok-debug] stream start " + debugId + " inMsgs=" + turn.messages.length + " tools=" + ((turn.tools && turn.tools.length) || 0));
+      log("[opengrok-debug] stream start " + debugId + " inMsgs=" + turn.messages.length + " tools=" + ((turn.tools && turn.tools.length) || 0) + " compaction=" + compaction.compactionThreshold + " early=" + compaction.earlyCompactionThreshold);
       var out = null;
       var useStream = hopSess.streamHop && process.env.OPENGROK_STREAM_HOP !== "0";
       if (useStream && typeof hopSess.runTurnStream === "function") {
@@ -507,12 +571,15 @@ function hopFullStream(exec, hopSess, binding, ctx, invocationId, tools, options
       for (var i = 0; i < calls.length; i++) {
         yield parseHopToolCall(calls[i], i);
       }
-      var u = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+      var u = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
       var ru = out && out.raw && out.raw.usage;
       if (ru) {
         u.promptTokens = ru.prompt_tokens || 0;
         u.completionTokens = ru.completion_tokens || 0;
         u.totalTokens = ru.total_tokens || 0;
+        var extras = extractUsageExtras(ru);
+        u.cacheReadTokens = extras.cacheReadTokens;
+        u.cacheWriteTokens = extras.cacheWriteTokens;
       }
       var finish = (out && out.finish_reason) || "stop";
       if (finish === "tool_calls") finish = "tool-calls";
@@ -527,6 +594,8 @@ function hopFullStream(exec, hopSess, binding, ctx, invocationId, tools, options
           modelId: hopSess.modelId,
           timestamp: new Date(),
           messages: [{ role: "assistant", content: assistantContent }],
+          supportsSelfSummary: compaction.supportsSelfSummary,
+          earlyCompactionContextTokenThreshold: compaction.earlyCompactionThreshold,
         });
         log("[opengrok-debug] response resolved " + debugId + " finishReason=" + finish + " contentParts=" + contentParts + " tools=" + calls.length);
       }
@@ -556,12 +625,12 @@ function hopFullStream(exec, hopSess, binding, ctx, invocationId, tools, options
   };
 }
 
-function wrapExecutor(exec, hopSess, binding) {
+function wrapExecutor(exec, hopSess, binding, compaction) {
   return new Proxy(exec, {
     get: function (target, prop, receiver) {
       if (prop === "stream") {
         return function (ctx, invocationId, tools, options2) {
-          return hopFullStream(target, hopSess, binding, ctx, invocationId, tools, options2);
+          return hopFullStream(target, hopSess, binding, compaction, ctx, invocationId, tools, options2);
         };
       }
       var val = Reflect.get(target, prop, receiver);
@@ -571,11 +640,11 @@ function wrapExecutor(exec, hopSess, binding) {
   });
 }
 
-function wrapPromptSession(inner, hopSess, binding, middleware) {
+function wrapPromptSession(inner, hopSess, binding, compaction, middleware) {
   return {
     getExecutor: function (state) {
       var raw = inner.getExecutor(state);
-      var hopExec = wrapExecutor(raw, hopSess, binding);
+      var hopExec = wrapExecutor(raw, hopSess, binding, compaction);
       return middleware ? middleware(hopExec) : hopExec;
     },
     getModelId: function () {
@@ -584,13 +653,13 @@ function wrapPromptSession(inner, hopSess, binding, middleware) {
   };
 }
 
-function wrapProvider(stockProvider, hopSess, binding) {
+function wrapProvider(stockProvider, hopSess, binding, compaction) {
   return {
     opengrok: true,
     modelId: binding.modelId,
     getSession: function (middleware) {
       var inner = stockProvider.getSession(undefined);
-      return wrapPromptSession(inner, hopSess, binding, middleware);
+      return wrapPromptSession(inner, hopSess, binding, compaction, middleware);
     },
     getProviderName: function () {
       return typeof stockProvider.getProviderName === "function" ? stockProvider.getProviderName() : "proto";
@@ -634,9 +703,11 @@ function wrapSession(stockFn, args) {
     parameters: Array.isArray(binding.parameters) ? binding.parameters : [],
     requestKind: "main",
   });
+  var compaction = compactionConfig(binding);
+  log("compaction ctx=" + compaction.contextWindow + " threshold=" + compaction.compactionThreshold + " early=" + compaction.earlyCompactionThreshold + " selfSummary=" + compaction.supportsSelfSummary);
   var stock = stockFn.apply(null, arr);
   if (stock && typeof stock.getSession === "function") {
-    return wrapProvider(stock, hopSess, binding);
+    return wrapProvider(stock, hopSess, binding, compaction);
   }
   return wrapBareHop(hopSess);
 }
@@ -652,5 +723,7 @@ module.exports = {
     toOpenAIMessages: toOpenAIMessages,
     parseHopToolCall: parseHopToolCall,
     resolveParametersForTurn: resolveParametersForTurn,
+    compactionConfig: compactionConfig,
+    extractUsageExtras: extractUsageExtras,
   },
 };
