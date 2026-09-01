@@ -249,7 +249,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path == "/healthz":
+        if self.path in ("/health", "/healthz"):
             self.send_json(200, {"ok": True, "service": "codex-everywhere-bridge"})
             return
         if self.path == "/v1/models":
