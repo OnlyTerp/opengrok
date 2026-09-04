@@ -31,7 +31,7 @@ const HOP_SESSION_PATH = path.resolve(__dirname, "..", "openai-hop-session.cjs")
 const hop = require(fs.existsSync(HOP_SESSION_PATH) ? HOP_SESSION_PATH : path.resolve(__dirname, "../openai-hop-session.cjs"));
 const maps = require("../../tools/provider-maps.cjs");
 
-const VALID_PARENT_UUID = "47818ea2-5ff8-4807-8ce5-1bece2e86926";
+const VALID_PARENT_UUID = "00000000-0000-4000-8000-000000000101";
 
 let passed = 0;
 let failed = 0;
@@ -444,7 +444,7 @@ async function runAll() {
   console.log("\n--- 2. Subagent Model Binding Inheritance & Security ---");
 
   await check("Inheritance: Dynamic subagent inherits parent hopBaseUrl, modelId, maxMode, parameters", async () => {
-    const parentAgentId = "47818ea2-5ff8-4807-8ce5-1bece2e86926";
+    const parentAgentId = "00000000-0000-4000-8000-000000000101";
     const subagentTranscriptId = "subagent-uuid-" + Math.random().toString(36).slice(2);
 
     const mockModelBindings = {
@@ -512,7 +512,7 @@ async function runAll() {
   });
 
   await check("Inheritance: Explicit subagent override takes precedence over parent binding", async () => {
-    const parentAgentId = "47818ea2-5ff8-4807-8ce5-1bece2e86926";
+    const parentAgentId = "00000000-0000-4000-8000-000000000101";
     const subagentExplicitId = "explicit-subagent-uuid-001";
 
     const mockModelBindings = {

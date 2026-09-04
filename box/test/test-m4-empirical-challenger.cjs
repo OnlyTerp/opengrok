@@ -638,7 +638,7 @@ test("5.1 Host-main subagent model binding inheritance logic", () => {
   }
 
   // Case A: Top-level parent with explicit binding
-  const parentId = "47818ea2-5ff8-4807-8ce5-1bece2e86926"; // alpha
+  const parentId = "00000000-0000-4000-8000-000000000101"; // alpha
   const topHost = { isSubagentRunner: false };
   const topBinding = resolveAgentModelBinding(topHost, parentId);
   assert.strictEqual(topBinding.name, "alpha");
@@ -649,7 +649,7 @@ test("5.1 Host-main subagent model binding inheritance logic", () => {
   const subHost = {
     isSubagentRunner: true,
     subagentTranscriptId: subagentTranscriptId,
-    getConversationId: () => "311f1552-4740-4055-b5aa-ca2005f7a0fa" // DeepseekPro
+    getConversationId: () => "00000000-0000-4000-8000-000000000102" // DeepseekPro
   };
   const subBinding = resolveAgentModelBinding(subHost, subagentTranscriptId);
   assert.strictEqual(subBinding.name, "DeepseekPro");
@@ -659,8 +659,8 @@ test("5.1 Host-main subagent model binding inheritance logic", () => {
   // Case C: Subagent with explicit override binding uses override
   const overrideSubHost = {
     isSubagentRunner: true,
-    subagentTranscriptId: "d2f5b4fc-6bb2-4aed-80b1-317fda7a6244", // glm-lane
-    getConversationId: () => "47818ea2-5ff8-4807-8ce5-1bece2e86926" // alpha
+    subagentTranscriptId: "00000000-0000-4000-8000-000000000103", // glm-lane
+    getConversationId: () => "00000000-0000-4000-8000-000000000101" // alpha
   };
   const overrideBinding = resolveAgentModelBinding(overrideSubHost, overrideSubHost.subagentTranscriptId);
   assert.strictEqual(overrideBinding.name, "glm-lane");

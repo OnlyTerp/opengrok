@@ -1,7 +1,7 @@
 {
   "_comment": "EXAMPLE bindings — structure + shape of a real working set. Never put credentials in this file; hopBaseUrl must be exactly http://127.0.0.1:<port>/v1 (loopback). provider is audit metadata only.",
   "agents": {
-    "47818ea2-5ff8-4807-8ce5-1bece2e86926": {
+    "00000000-0000-4000-8000-000000000101": {
       "name": "alpha",
       "modelId": "grok-4.6",
       "provider": "grok-superheavy",
@@ -12,7 +12,7 @@
         { "id": "effort", "value": "high" }
       ]
     },
-    "311f1552-4740-4055-b5aa-ca2005f7a0fa": {
+    "00000000-0000-4000-8000-000000000102": {
       "name": "DeepseekPro",
       "modelId": "deepseek/deepseek-v4-pro-0813:thinking",
       "provider": "deepseek",
@@ -20,7 +20,7 @@
       "maxMode": true,
       "parameters": []
     },
-    "d2f5b4fc-6bb2-4aed-80b1-317fda7a6244": {
+    "00000000-0000-4000-8000-000000000103": {
       "name": "glm-lane",
       "modelId": "glm-5.3",
       "provider": "glm-coding-plan",

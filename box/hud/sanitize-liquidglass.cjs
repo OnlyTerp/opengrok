@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+/* eslint-fixture-leak-gate: this file scrubs/asserts absence of personal literals */
 "use strict";
+/* eslint-fixture-leak-gate: this file scrubs/asserts absence of personal literals */
 /**
  * sanitize-liquidglass.cjs — derive box/hud/liquidglass.js (repo-safe) from the live HUD file.
  * Replaces the embedded personal bindings snapshot with generic example agents (same shape),
@@ -51,11 +53,11 @@ const generic = `const STATIC_BINDINGS = {
 t = t.slice(0, start) + generic + t.slice(end);
 
 // 2. Scrub personal markers.
-t = t.replace(/Terpbot/g, "Demo Bot").replace(/\bTerp\b/g, "the operator");
+t = t.replace(/\bTerpbot\b/g, "Demo Bot").replace(/\bTerp\b/g, "the operator");
 
 // 3. Leak assertions.
 const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[1-57][0-9a-f]{3}-[0-9ab][0-9a-f]{3}-[0-9a-f]{12}/g;
-const reserved = /^0{8}-0{4}-4000-8000-0{11}(1|2)$/; // examples use this reserved-zero pool — not a leak
+const reserved = /^0{8}-0{4}-4000-8000-0{9}[0-9]{3}$/; // examples use this reserved-zero pool — not a leak
 const uuids = (t.match(uuidRe) || []).filter(u => !reserved.test(u));
 if (uuids.length) { console.error("UUID leak(s):", uuids.slice(0, 5)); process.exit(1); }
 if (/\bTerp|onlyterp|Rob\b|Rosalie|terpbot/i.test(t)) { console.error("name leak"); process.exit(1); }

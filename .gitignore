@@ -34,3 +34,6 @@ voice/*.log
 voice/teach-notes/
 voice/watchdog-v5.marker
 voice/voice.events.log
+
+# private: operator agent UUIDs (leak-gate list; never commit)
+tools/banned-uuids.txt

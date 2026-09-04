@@ -38,7 +38,7 @@ Not ported: box-only bash scripts, `maps-box.cjs` (superseded by #2), `apply_on_
   never hardcoded user paths; tailscale push only via `GROKBOT_METRICS_RELAY` env.
 - S-7: provider-maps comments de-personalized; `.grokbot/harness-shim-work` literal
   references → repo-relative docs paths.
-- S-8: test fixtures embedded locals (Terpbot name, agent uuid as data) fine ONLY when
+- S-8: test fixtures embedded locals (operator name, agent uuid as data) fine ONLY when
   generic context (they fake a bindings dict); real `machine-bindings.json` never read.
 - S-9: leak scan (qa.py) extended: names Robert/Terp/onlyterp/Roskey/Rob + terp-life-map
   + machine tailscale IP + `.terp`/`.grokbot` paths must return 0 hits.

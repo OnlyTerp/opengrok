@@ -1,3 +1,4 @@
+/* eslint-fixture-leak-gate: this file scrubs/asserts absence of personal literals */
 "use strict";
 /**
  * box/hud/test-liquidglass.cjs — behavioral harness for the LiquidGlass HUD fix.
