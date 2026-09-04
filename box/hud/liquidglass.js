@@ -1100,6 +1100,30 @@
         });
       }
 
+      // Dropdown placement: flip & clamp so the full list is always clickable (9/4 fix)
+      if (showModelDropdown) {
+        const ddEl = document.getElementById("gb-custom-dropdown");
+        if (ddEl) {
+          try {
+            const ddRect = ddEl.getBoundingClientRect();
+            const vh = window.innerHeight || 900;
+            const cardRect = rootEl.getBoundingClientRect();
+            let newTop = null;
+            if (ddRect.bottom > vh - 6) {
+              // flip above the trigger when there's more room above
+              const spaceAbove = cardRect.top + 54; // room from card top to trigger (approx 54px)
+              const hh = Math.min(ddRect.height + (ddRect.bottom - vh) + 8, Math.max(120, spaceAbove));
+              if (spaceAbove > 180 && spaceAbove > (vh - ddRect.top)) {
+                newTop = Math.round(cardRect.top + 6);
+                ddEl.style.top = (newTop - cardRect.top) + "px";
+              }
+              const availBelow = vh - (newTop != null ? (cardRect.top + Math.round(hh)) : ddRect.top) - 8;
+              ddEl.style.maxHeight = Math.max(120, Math.min(availBelow + (newTop != null ? 0 : (ddRect.bottom - vh)), 520)) + "px";
+            }
+          } catch (err) {}
+        }
+      }
+
       // Dropdown search & selection handlers
       if (showModelDropdown) {
         const searchInput = document.getElementById("gb-model-search");
