@@ -726,6 +726,34 @@
     return globalLatestMetrics;
   }
 
+
+  // --- LIVE diag probes (real TCP/HTTP health, no hardcoded CONNECTED) ---
+  async function probeDiag() {
+    const ports = ["8799", "18786", "18779", "18776", "18778"];
+    for (const port of ports) {
+      const el = document.getElementById("gb-diag-" + port);
+      if (!el) continue;
+      let ok = false, label = "DOWN";
+      try {
+        const ctl = new AbortController();
+        const t = setTimeout(() => ctl.abort(), 2500);
+        const res = await fetch("http://127.0.0.1:" + port + "/health", { signal: ctl.signal, cache: "no-store" });
+        clearTimeout(t);
+        ok = res.ok;
+        if (!ok && port !== "8799") {
+          // shims may not expose /health — try a HEAD on /v1/models
+          const ctl2 = new AbortController();
+          const t2 = setTimeout(() => ctl2.abort(), 2500);
+          const res2 = await fetch("http://127.0.0.1:" + port + "/v1/models", { signal: ctl2.signal, cache: "no-store" });
+          clearTimeout(t2);
+          ok = res2.ok || res2.status === 404 || res2.status === 401;
+        }
+      } catch (e) { ok = false; }
+      el.textContent = "127.0.0.1:" + port + (ok ? " · CONNECTED" : " · DOWN");
+      el.style.color = ok ? "#34d399" : "#f87171";
+    }
+  }
+
   async function updateActiveModel(newModelId, newHopUrl, provider) {
     const aid = resolveActiveAgentId();
     if (!aid) return;
@@ -1046,6 +1074,7 @@
           showRoster = false;
           showModelDropdown = false;
           render(true);
+          if (showDiag) setTimeout(probeDiag, 60);
         });
       }
 
@@ -1406,6 +1435,13 @@
     } catch (e) {}
 
     updateLiveMetricValues();
+    if (typeof showDiag !== "undefined" && showDiag && rootEl && rootEl.querySelector("#gb-diag-drawer")) {
+      const now = Date.now();
+      if (!probeDiag.__last || now - probeDiag.__last > 5000) {
+        probeDiag.__last = now;
+        probeDiag();
+      }
+    }
     setTimeout(poll, 400);
   }
 
