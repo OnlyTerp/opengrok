@@ -1,12 +1,13 @@
 # Validation Contract — opengrok takeover: port the 9/2 Grok-bot wave + fix reliability + answer the issues
 
-**Mission:** Take over https://github.com/OnlyTerp/opengrok. Terp's ask: "no where near
-reliable or easy enough to use … take it over and get it perfect." Two inputs:
+**Mission:** Make the opengrok toolchain reliable and easy enough for any user to run.
+Original ask: "no where near reliable or easy enough to use … take it over and get it
+perfect." Two inputs:
 
 1. The **9/2 /teamwork wave** that shipped live on his machine but never landed in the
    repo: Context Guardian, in-chat reset, provider wire maps (36-route), Cerebras
-   recognition, probe triage. Isolated material lives in `C:\Users\User\.grokbot\` and
-   `C:\Users\User\.terp\grokbox\box-fs\`.
+   recognition, probe triage. Source material lives in machine-local working dirs
+   outside the repo (never committed).
 2. Five unresolved community issues (#3,4,5,8,10) all pointing at the same hole:
    `openai-hop-session.cjs` + the real host-patch path were never published, and the
    patch anchors assumed a pre-patched bundle stock users don't have.
@@ -40,8 +41,8 @@ Not ported: box-only bash scripts, `maps-box.cjs` (superseded by #2), `apply_on_
   references → repo-relative docs paths.
 - S-8: test fixtures embedded locals (operator name, agent uuid as data) fine ONLY when
   generic context (they fake a bindings dict); real `machine-bindings.json` never read.
-- S-9: leak scan (qa.py) extended: names Robert/Terp/onlyterp/Roskey/Rob + terp-life-map
-  + machine tailscale IP + `.terp`/`.grokbot` paths must return 0 hits.
+- S-9: leak scan (qa.py): personal names/handles, machine tailscale IPs, user-profile
+  paths, and real agent UUIDs must return 0 hits (resampled machine list, gitignored).
 
 ## Reliability requirements (the issues)
 
@@ -63,7 +64,7 @@ Not ported: box-only bash scripts, `maps-box.cjs` (superseded by #2), `apply_on_
   removed map name fails loudly (import integrity).
 - V-5: S-9 leak scan on the full working tree incl. boxes → 0.
 - V-6: each closed issue gets a gh comment with real command + exit code evidence;
-  PRs triaged honestly; NO pushes/deploys without explicit Terp GO.
+  PRs triaged honestly; irreversible actions require operator approval.
 - V-7: every /teamwork-panel deliverable matched: Guardian+reset in box lane ✓, maps ✓,
   Cerebras probe module ✓, probe triage doc ✓; divergence documented in
   `docs/MODEL-GUIDELINES.md` (stock-host overlay not portable this 1.0).
