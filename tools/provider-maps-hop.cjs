@@ -1,7 +1,16 @@
 "use strict";
 /**
  * Harness → provider wire maps for Grok Bot hop specialists.
- * Contract: harness-shim parity checklist §4.2 — applyHarnessControls(body, {modelId, provider, maxMode, parameters}) -> {body, route, applied, unknownIds}.
+ * Contract: harness-shim parity checklist §4.2 (docs/HOST-INTEGRATION.md) —
+ * applyHarnessControls(body, {modelId, provider, maxMode, parameters}) ->
+ * {body, route, applied, unknownIds}.
+ *
+ * Production extensions (from the 9/2 live-deploy wave):
+ *   applyHarnessControlsWithDefault  — whole-body route with fallback identity,
+ *   loadHarnessControls              — read bindings + hot-reload require cache,
+ *   applyHarnessControlsToBody       — {body, route, applied, unknownIds} return,
+ *   harness-control-audit jsonl      — per-call audit trail (env: OPENHOP_AUDIT_LOG).
+ * Wire tables are shared with Contract A (provider-maps.cjs) — single truth.
  *
  * Harness control plane (same ids as native RequestedModel.parameters):
  *   thinking: "true" | "false"

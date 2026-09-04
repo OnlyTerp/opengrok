@@ -1,82 +1,81 @@
-# Validation Contract — Voice Assistant Port into opengrok
+# Validation Contract — opengrok takeover: port the 9/2 Grok-bot wave + fix reliability + answer the issues
 
-**Mission:** Port the working realtime voice stack (ears / captain / mouth / supervisor /
-watchdog) from the private machine-local install into the public repository,
-fully sanitized, with an end-to-end onboarding path (ChatGPT OAuth for
-the realtime brain + ElevenLabs for the mouth) such that a stranger can clone,
-set up, and talk to it with zero personal-info leakage and zero dead ends.
+**Mission:** Take over https://github.com/OnlyTerp/opengrok. Terp's ask: "no where near
+reliable or easy enough to use … take it over and get it perfect." Two inputs:
 
-**Scope:** Runtime lanes only. The MITM / mobile-bridge / phone lane is explicitly
-OUT of scope (owned separately).
+1. The **9/2 /teamwork wave** that shipped live on his machine but never landed in the
+   repo: Context Guardian, in-chat reset, provider wire maps (36-route), Cerebras
+   recognition, probe triage. Isolated material lives in `C:\Users\User\.grokbot\` and
+   `C:\Users\User\.terp\grokbox\box-fs\`.
+2. Five unresolved community issues (#3,4,5,8,10) all pointing at the same hole:
+   `openai-hop-session.cjs` + the real host-patch path were never published, and the
+   patch anchors assumed a pre-patched bundle stock users don't have.
 
----
+**Hard laws inherited from repo + operator:** no personal identifiers/paths/IPs in
+tracked files; no fixture-only capability (drive real entry points); exits are truth;
+BLOCKED ≠ failed (one honest attempt, report, stop); nothing pushed without Terp GO.
 
-## Sanitization requirements (hard law)
+## File inventory (port plan)
 
-- S-1: Zero absolute personal user-home paths in any tracked files (Windows-style
-  `Users-backslash-name`, POSIX `Users-slash-name`, MSYS `c-slash-Users` forms).
-  All paths that reach user homes must go through `os.homedir()` or env config
-  with generic defaults.
-- S-2: Zero personal identifiers: no first names, no personal handles, no machine name,
-  no private agent-ID rosters, no voice-clone IDs, no pronunciation-dict IDs,
-  no personal API keys/tokens (scan-verified).
-- S-3: All auth flows from env vars or interactive first-run logins — no baked tokens,
-  no committed `.env`, `.env` in `.gitignore` verified.
-- S-4: Default persona text is generic (works for any user); persona is user-suppliable
-  via config. No hardwired private agent names — consult targets come from the
-  user's own `VOICE_CONSULT_ROSTER` config.
+| # | Source (isolated, verified live) | Repo destination | Sanitization |
+|---|---|---|---|
+| 1 | `.terp/grokbox/box-fs/openai-hop-session.cjs` (1966 ln, CRLF, node --check OK, 341-test suite green) | `box/openai-hop-session.cjs` (LF) | S-1..S-3 (env-var takeover) |
+| 2 | `.grokbot/harness-shim-work/provider-maps.cjs` (449 ln = box-fs copy byte-identity for CRLF lines) | merge into `tools/provider-maps.cjs` + `tools/provider-maps-hop.cjs` | doc refs only |
+| 3 | `.terp/grokbox/box-fs/reapply-model-bindings-patch.py` (856 ln, LF) | `box/reapply-host-patch.py` | S-1..S-3 |
+| 4 | `.grokbot/grokbot-liquidglass.js` (1797 ln, LF) | `box/liquidglass.js` (+ docs) | S-1..S-4 (roster = user's own bindings) |
+| 5 | `.grokbot/harness-shim-work/test-*.cjs` (m1/m2-full/m2-* /m4 ×2/provider-maps; driver-verified 9/4: m1=11, m2-full=26, m2-adv=19, m2-emp=3, m4-node=14, m4-challenger=25 = 98 unique harness passes; provider-maps merged suite 34/34) | `box/test/*.cjs` | dedupe vs repo suites |
+| 6 | `.terp/grokbox/box-fs/reapply-*` doc refs (PATCHES/SHIP-STATUS/DESIGN-NOTE/BINDINGS-SCHEMA/PARITY) | `docs/HOST-INTEGRATION.md` | rewrite |
 
-## Runtime requirements (stranger test)
+Not ported: box-only bash scripts, `maps-box.cjs` (superseded by #2), `apply_on_box.sh`
+(older parallel of #3), app.asar artifacts, LiquidGlass ASAR injector & pyw overlay
+(descriptor frozen; in-app mode documented as optional power-user step).
 
-- R-1: `node voice/supervisor.cjs` starts all four lanes (ears STT, captain realtime,
-  mouth TTS, supervisor) on a stock Windows/macOS/Linux box with only Node >= 18
-  (mic capture runs in the browser panel — no native audio deps).
-- R-2: Missing credentials produce a guided, actionable error (which env var, which URL
-  to get it, exact format) — never a stack trace as the first line of failure.
-- R-3: ChatGPT/OpenAI onboarding: documented step-by-step (Codex CLI login writes
-  `~/.codex/auth.json`, stack picks it up; or `VOICE_OPENAI_TOKEN` env alternative).
-- R-4: ElevenLabs onboarding: documented step-by-step (API key, voice selection incl.
-  clone-your-voice path, optional pronunciation lexicon), `.env.example` documents
-  every key.
-- R-5: A doctor command verifies: Node version, `.env` presence, ElevenLabs config,
-  OpenAI realtime auth (env or Codex login), Grok/xAI auth (env or `~/.grok/auth.json`)
-  — each with PASS/FAIL + fix hint, exit code 1 on blockers.
-- R-6: Degraded-but-honest without credentials: gateway boots without ElevenLabs
-  (health shows `mouth: down`, checklist explains the fix); no fake success.
+## Sanitization requirements (extend opengrok contract S-1..S-4)
 
-## Repo integration requirements
+- S-5: `HOP_ENV_BRIEFING` in openai-hop-session.cjs — env-overridable
+  (`GROKBOT_HOP_BRIEFING_FILE` / `_S`), generic default with zero names/handles/paths.
+- S-6: metrics paths + tailscale push IP — fs-exists discovery over HOME/XDG env vars,
+  never hardcoded user paths; tailscale push only via `GROKBOT_METRICS_RELAY` env.
+- S-7: provider-maps comments de-personalized; `.grokbot/harness-shim-work` literal
+  references → repo-relative docs paths.
+- S-8: test fixtures embedded locals (Terpbot name, agent uuid as data) fine ONLY when
+  generic context (they fake a bindings dict); real `machine-bindings.json` never read.
+- S-9: leak scan (qa.py) extended: names Robert/Terp/onlyterp/Roskey/Rob + terp-life-map
+  + machine tailscale IP + `.terp`/`.grokbot` paths must return 0 hits.
 
-- I-1: Voice stack lives as a self-contained subpackage (`voice/` at repo root) with its
-  own README; linked from the root README.
-- I-2: ~~`setup.py` gains a voice step~~ AMENDED 8/29: voice is fully self-contained
-  (`voice/doctor.js` + `voice/scripts/start-voice.ps1`); no coupling to setup.py.
-- I-3: Launchers: `voice/scripts/start-voice.ps1` + `stop-voice.ps1` (Windows-first,
-  documented), plain `node` commands work everywhere; no hardcoded user paths.
-- I-4: MIT license + attribution preserved; no upstream code copied beyond what the
-  port needs.
+## Reliability requirements (the issues)
 
-## Validation gates (all must PASS before push)
+- R-1 (#4): doctor.py null-sha TypeError — fix both branches, + negative-control test.
+- R-2 (#3/5/8/10): CLOUD-HOST.md rewritten honest-state; setup gates resolve step on
+  `--check-target` gate step; apply-box-patch.py --dry-run states "SHIPS A PATCHER, NOT BUNDLE";
+  reapply path + sha registry documented; anchor-count CI tripwire.
+- R-3 (#5 ask 3): CI tripwire proves patch tooling shipped + hop session present.
+- R-4: qa.py already runs the m-suite.
 
-- V-1 leak-scan: `node voice/scripts/leak-scan.js` (committed, repeatable, structural
-  patterns only) returns CLEAN; plus a one-off grep for the specific personal IDs on
-  the push tree returns 0 hits. Expected matches: 0.
-- V-2 fresh-clone test: clone to a clean temp dir; `node voice/doctor.js` runs and
-  exits with guided FAILs (not crashes); `node voice/supervisor.cjs` on an ALT port
-  boots all four lanes from the clone.
-- V-3 syntax: `node --check` passes on every shipped .js/.cjs file (0 errors).
-- V-4 doctor dry-run: doctor with no creds exits 1 with actionable FAIL lines (R-2).
-- V-5 git hygiene: build/runtime artifacts ignored (`voice/.env`, logs, markers);
-  commit contents scanned, not just tip.
-- V-6 push verdict: after `git push`, verify via `git ls-remote origin` that remote
-  HEAD matches local; then fresh-clone from the remote and re-run V-1.
+## Validation gates (all must show real output before ANY push)
+
+- V-1: `python tools/qa.py` = 0 fails, includes new boxes suite + new leak patterns.
+- V-2: `node box/test/run-all.cjs` = 98 harness-pass 0 fail (11 m1 + 26 m2-full + 19 m2-adv + 3 m2-emp + 14 m4-node + 25 m4-challenger, driver-verified 9/4) (port-adapted paths).
+- V-3: `node tools/test-provider-maps.cjs` + hop suites original green (23/23, 6/6)
+  AND merged-map suite green (34/34 → extended).
+- V-4: negative controls: (a) revert guardian call → V-2 count drops (suite bites);
+  (b) fake key planted → qa.py fails; (c) `box/openai-hop-session.cjs` requiring
+  removed map name fails loudly (import integrity).
+- V-5: S-9 leak scan on the full working tree incl. boxes → 0.
+- V-6: each closed issue gets a gh comment with real command + exit code evidence;
+  PRs triaged honestly; NO pushes/deploys without explicit Terp GO.
+- V-7: every /teamwork-panel deliverable matched: Guardian+reset in box lane ✓, maps ✓,
+  Cerebras probe module ✓, probe triage doc ✓; divergence documented in
+  `docs/MODEL-GUIDELINES.md` (stock-host overlay not portable this 1.0).
 
 ## Done definition
 
-All of V-1..V-6 PASS + operator-visible summary with: file inventory, sanitization diff
-summary, walkthrough location, and remote commit hash. A PASS with zero checks is not
-a PASS: every V- gate must show its actual command output (exit codes are truth).
+V-1..V-5 real-exit-code PASS (no fixture-only lane), Terp-verifiable summary citing
+ticket refs + exit codes, full push/PR actions presented as a proposal. "Perfect" =
+a stranger can clone → setup → pick → save → see the binding consumed — with the
+honest-state doc that says exactly when stock hosts cannot (and what replaces it).
 
 ## Blocked ≠ failed
 
-Any gate that needs credentials not provided (e.g. live OpenAI/ElevenLabs calls) is
-reported as BLOCKED with what unblocks it — not silently skipped, not faked.
+No ✓ fabrication. Live-wire (on-box) patch validation is BLOCKED (no box access
+without interrupting Terp's session); reported as such with what unblocks it.

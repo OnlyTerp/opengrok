@@ -1,6 +1,35 @@
 {
-  "_comment": "EXAMPLE bindings — structure only. Never put credentials in this file; hopBaseUrl must be exactly http://127.0.0.1:<port>/v1. provider is audit metadata only.",
+  "_comment": "EXAMPLE bindings — structure + shape of a real working set. Never put credentials in this file; hopBaseUrl must be exactly http://127.0.0.1:<port>/v1 (loopback). provider is audit metadata only.",
   "agents": {
+    "47818ea2-5ff8-4807-8ce5-1bece2e86926": {
+      "name": "alpha",
+      "modelId": "grok-4.6",
+      "provider": "grok-superheavy",
+      "hopBaseUrl": "http://127.0.0.1:18779/v1",
+      "maxMode": true,
+      "parameters": [
+        { "id": "thinking", "value": "true" },
+        { "id": "effort", "value": "high" }
+      ]
+    },
+    "311f1552-4740-4055-b5aa-ca2005f7a0fa": {
+      "name": "DeepseekPro",
+      "modelId": "deepseek/deepseek-v4-pro-0813:thinking",
+      "provider": "deepseek",
+      "hopBaseUrl": "http://127.0.0.1:18786/v1",
+      "maxMode": true,
+      "parameters": []
+    },
+    "d2f5b4fc-6bb2-4aed-80b1-317fda7a6244": {
+      "name": "glm-lane",
+      "modelId": "glm-5.3",
+      "provider": "glm-coding-plan",
+      "hopBaseUrl": "http://127.0.0.1:18791/v1",
+      "maxMode": false,
+      "parameters": [
+        { "id": "effort", "value": "high" }
+      ]
+    },
     "00000000-0000-4000-8000-000000000001": {
       "name": "Frontier Agent (subscription lane)",
       "modelId": "<exact-upstream-slug-with-effort-suffix>",
@@ -8,7 +37,7 @@
       "hopBaseUrl": "http://127.0.0.1:18790/v1",
       "maxMode": false,
       "parameters": [
-        { "id": "effort",   "value": "high" },
+        { "id": "effort", "value": "high" },
         { "id": "thinking", "value": "true" }
       ]
     },
@@ -23,13 +52,6 @@
       ]
     },
     "00000000-0000-4000-8000-000000000003": {
-      "name": "DeepSeek Thinking Lane",
-      "modelId": "<vendor>/<model>:thinking",
-      "provider": "deepseek-via-relay",
-      "hopBaseUrl": "http://127.0.0.1:18791/v1",
-      "parameters": []
-    },
-    "00000000-0000-4000-8000-000000000004": {
       "name": "Local Model (llama.cpp)",
       "modelId": "<local-alias>",
       "provider": "local-gpu",

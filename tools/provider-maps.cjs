@@ -1,11 +1,14 @@
 "use strict";
 /*
- * Provider maps: Grok Bot harness control plane -> upstream wire fields.
- * Loaded hot by the host session shim; hot-reload safe (require-cache bust).
+ * opengrok Contract A — direct body maps (client-side lanes + the box hop).
+ * See docs/HOST-INTEGRATION.md for the consumer contract.
  *
- * Grok (xAI) is IMPLEMENTED. Claude / Gemini / Qwen are explicit TODO stubs that
- * leave upstream defaults untouched (never ship half-maps; do not fabricate a
- * generic OpenAI passthrough for fields the provider does not understand).
+ * Provider maps: Grok Bot harness control plane -> upstream wire fields.
+ * Consumed by box/openai-hop-session.cjs (see docs/HOST-INTEGRATION.md).
+ *
+ * Grok (xAI) is IMPLEMENTED. All routes are live-verified (wire captures per CONTRIBUTING.md). No
+ * fabricated generic passthroughs: a control that cannot be expressed on a
+ * provider wire is an explicit noop, never guessed.
  *
  * Authoritative upstream facts:
  *  - xAI grok-4.6 / grok-4.5: reasoning_effort in {low, medium, high (default), xhigh},
@@ -100,8 +103,8 @@ function applyGrok(body, maxMode, parameters) {
  *                                                  max_tokens 256000 ONLY if
  *                                                  caller omitted it.
  *
- * STILL STUBS (no session-verified wire dump -> never fabricate): GLM/zai,
- *   xiaomi mimo, qwen token-plan/local (plain chat_completions needs nothing),
+ * UNSPECIALIZED (no session-verified wire dump -> never fabricate): xiaomi mimo,
+ *   plain chat_completions lanes where the stock request already carries intent,
  *   hermes-agent (:18790 hop target; api_server speaks standard OpenAI wire).
  */
 function applyProviderReasoningControls(body, ctx) {
@@ -128,12 +131,15 @@ function applyProviderReasoningControls(body, ctx) {
     var gLabel = applyGlm(body, ctx.parameters);
     return gLabel || "glm-passthrough";
   }
+  if (isQwenRoute(modelId, baseUrl)) {
+    return applyQwen(body, ctx.maxMode === true, ctx.parameters);
+  }
   return "none";
 }
 
 /*
  * GLM (Zhipu bigmodel.cn CODING endpoint) — VERIFIED LIVE 2026-08-27,
- * 7-probe capture vs glm-5.3-flash (wire-captures/glm-5.3-flash/).
+ * 7-probe capture vs glm-5.3-flash (~/.terp/glm-wire/glm-capture/).
  * Verified: top-level thinking:{type:enabled|disabled} + reasoning_effort in
  * {low,medium,high,max} all accepted; BARE requests think by default (~high);
  * thinking:disabled is a TRUE off-switch; "max" is a valid GLM token.
@@ -163,8 +169,8 @@ function applyGlm(body, parameters) {
   return null; // silent request stays untouched
 }
 
-var GLM_MODEL_RE = /^glm[-.\d]/i;
-var GLM_BASE_RE = /bigmodel\.cn/;
+var GLM_MODEL_RE = /^(glm[-.\d]|zai-org\/glm)/i;
+var GLM_BASE_RE = /(bigmodel\.cn|friendli|127\.0\.0\.1:18791)/i;
 function isGlmRoute(modelId, baseUrl) {
   if (GLM_MODEL_RE.test(String(modelId || ""))) return true;
   return GLM_BASE_RE.test(String(baseUrl || ""));
@@ -215,9 +221,218 @@ function applyDeepSeek(body, modelId, parameters) {
   return true;
 }
 
+function isQwenRoute(modelId, baseUrl) {
+  if (/qwen/i.test(String(modelId || ""))) {
+    return /127\.0\.0\.1:18787/.test(String(baseUrl || ""));
+  }
+  return /127\.0\.0\.1:18787/.test(String(baseUrl || ""));
+}
+
+function applyQwen(body, maxMode, parameters) {
+  var thinking = param(parameters, "thinking");
+  var enableThinking = thinking === true || String(thinking).toLowerCase() === "true" || (thinking !== false && maxMode === true);
+  if (!body.chat_template_kwargs) body.chat_template_kwargs = {};
+  body.chat_template_kwargs.enable_thinking = enableThinking;
+  var effort = param(parameters, "effort");
+  if (effort != null) {
+    body.reasoning_effort = String(effort);
+  }
+  return "qwen-local";
+}
+
+function repairTruncatedJson(str) {
+  if (typeof str !== "string") return null;
+  var s = str.trim();
+  if (!s) return "{}";
+
+  try {
+    var direct = JSON.parse(s);
+    return typeof direct === "object" && direct !== null ? JSON.stringify(direct) : null;
+  } catch (e) {}
+
+  if (!s.startsWith("{") && !s.startsWith("[")) {
+    s = "{" + s;
+  }
+
+  var inString = false;
+  var isEscaped = false;
+  var cleanChars = [];
+
+  for (var i = 0; i < s.length; i++) {
+    var ch = s[i];
+    if (isEscaped) {
+      isEscaped = false;
+      cleanChars.push(ch);
+      continue;
+    }
+    if (ch === "\\") {
+      isEscaped = true;
+      cleanChars.push(ch);
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      cleanChars.push(ch);
+      continue;
+    }
+    cleanChars.push(ch);
+  }
+
+  var repaired = cleanChars.join("");
+  if (inString) {
+    if (isEscaped) {
+      repaired = repaired.slice(0, -1);
+    }
+    repaired += '"';
+  }
+
+  var stack = [];
+  var inStr = false;
+  var esc = false;
+  for (var j = 0; j < repaired.length; j++) {
+    var c = repaired[j];
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (c === "\\") {
+      esc = true;
+      continue;
+    }
+    if (c === '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (!inStr) {
+      if (c === "{" || c === "[") {
+        stack.push(c);
+      } else if (c === "}") {
+        if (stack.length > 0 && stack[stack.length - 1] === "{") stack.pop();
+      } else if (c === "]") {
+        if (stack.length > 0 && stack[stack.length - 1] === "[") stack.pop();
+      }
+    }
+  }
+
+  if (stack.length > 0 && stack[stack.length - 1] === "{") {
+    if (/:\s*$/.test(repaired)) {
+      repaired = repaired.replace(/:\s*$/, ": null");
+    } else if (/\{\s*""\s*$/.test(repaired)) {
+      repaired = repaired.replace(/\{\s*""\s*$/, "{");
+    } else if (/,\s*""\s*$/.test(repaired)) {
+      repaired = repaired.replace(/,\s*""\s*$/, "");
+    } else if (/([{,]\s*)"([^"]+)"\s*$/.test(repaired)) {
+      repaired += ": null";
+    }
+  }
+
+  repaired = repaired.replace(/,\s*$/, "");
+
+  var finalStack = [];
+  inStr = false;
+  esc = false;
+  for (var k = 0; k < repaired.length; k++) {
+    var cur = repaired[k];
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (cur === "\\") {
+      esc = true;
+      continue;
+    }
+    if (cur === '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (!inStr) {
+      if (cur === "{" || cur === "[") {
+        finalStack.push(cur);
+      } else if (cur === "}") {
+        if (finalStack.length > 0 && finalStack[finalStack.length - 1] === "{") finalStack.pop();
+      } else if (cur === "]") {
+        if (finalStack.length > 0 && finalStack[finalStack.length - 1] === "[") finalStack.pop();
+      }
+    }
+  }
+
+  while (finalStack.length > 0) {
+    var open = finalStack.pop();
+    if (open === "{") {
+      repaired = repaired.replace(/,\s*$/, "") + "}";
+    } else if (open === "[") {
+      repaired = repaired.replace(/,\s*$/, "") + "]";
+    }
+  }
+
+  try {
+    var parsed = JSON.parse(repaired);
+    if (typeof parsed === "object" && parsed !== null) {
+      return JSON.stringify(parsed);
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+function canonicalToolArguments(raw) {
+  var parsed;
+  if (typeof raw === "string") {
+    if (!raw.trim()) return null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      var repaired = repairTruncatedJson(raw);
+      if (repaired != null) {
+        try {
+          parsed = JSON.parse(repaired);
+        } catch (err) {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+  } else {
+    parsed = raw;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  try {
+    return JSON.stringify(parsed);
+  } catch (e) {
+    return null;
+  }
+}
+
+function repairTruncatedJsonArguments(raw) {
+  return repairTruncatedJson(raw);
+}
+
+var ToolArgumentRepairEngine = {
+  canonical_tool_arguments: canonicalToolArguments,
+  canonicalToolArguments: canonicalToolArguments,
+  repair_json_string: repairTruncatedJson,
+  repairTruncatedJson: repairTruncatedJson,
+  repairTruncatedJsonArguments: repairTruncatedJson
+};
+
 module.exports = {
   applyProviderReasoningControls: applyProviderReasoningControls,
   isGrokRoute: isGrokRoute,
+  isClaudeRoute: isClaudeRoute,
+  isGeminiRoute: isGeminiRoute,
+  isDeepSeekRoute: isDeepSeekRoute,
+  isGlmRoute: isGlmRoute,
+  isQwenRoute: isQwenRoute,
+  applyGrok: applyGrok,
+  applyGemini: applyGemini,
+  applyDeepSeek: applyDeepSeek,
+  applyGlm: applyGlm,
+  applyQwen: applyQwen,
+  repairTruncatedJson: repairTruncatedJson,
+  repairTruncatedJsonArguments: repairTruncatedJsonArguments,
+  canonicalToolArguments: canonicalToolArguments,
+  ToolArgumentRepairEngine: ToolArgumentRepairEngine,
   __test: {
     EFFORT_TO_XAI: EFFORT_TO_XAI,
     applyGrok: applyGrok,
@@ -228,5 +443,11 @@ module.exports = {
     applyDeepSeek: applyDeepSeek,
     isGlmRoute: isGlmRoute,
     applyGlm: applyGlm,
+    isQwenRoute: isQwenRoute,
+    applyQwen: applyQwen,
+    repairTruncatedJson: repairTruncatedJson,
+    repairTruncatedJsonArguments: repairTruncatedJsonArguments,
+    canonicalToolArguments: canonicalToolArguments,
+    ToolArgumentRepairEngine: ToolArgumentRepairEngine
   },
 };
