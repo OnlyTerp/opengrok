@@ -14,6 +14,7 @@ const SUITES = [
   "test-m2-empirical-node.cjs",
   "test-m4-empirical-challenger.cjs",
   "test-m4-empirical-node.cjs",
+  "test-hop-install.cjs",
 ];
 
 let failed = 0;
