@@ -525,6 +525,9 @@
     rootEl.style.bottom = "auto";
     dragData.isDragging = false;
     dragData.hasDragged = false;
+    dragData.pointerArmed = false;
+    dragData.armed = false;
+    dragData.tapCandidate = false;
   }
 
   function applyPosition() {
@@ -831,7 +834,7 @@
       const pillBtn = document.getElementById("gb-pill-btn");
       if (pillBtn) {
         pillBtn.addEventListener("click", function () {
-          if (!dragData.hasDragged) {
+          if (dragData.tapCandidate !== false) {
             isExpanded = true;
             render(true);
           }
@@ -1242,29 +1245,39 @@
         (e.target.closest && (e.target.closest("button") || e.target.closest(".gb-custom-menu") || e.target.closest(".gb-drawer") || e.target.closest(".gb-btn-icon"))))) {
       return;
     }
-    if (e.stopPropagation) e.stopPropagation();
-    if (e.preventDefault && (e.type === "pointerdown" || e.type === "mousedown")) {
-      e.preventDefault();
-    }
-    dragData.isDragging = true;
+    // STOP-GAP REMOVED: preventDefault on pointerdown kills the click event chain for real mouse users;
+    // we instead suppress clicks only AFTER a real drag via dragData.hasDragged.
+    dragData.pointerArmed = true;
+    dragData.tapCandidate = true;     // every press is a tap candidate until it crosses the move threshold
     dragData.hasDragged = false;
+    dragData.armed = false;
+    dragData.isDragging = false;
     dragData.startX = e.clientX || 0;
     dragData.startY = e.clientY || 0;
     const rect = rootEl.getBoundingClientRect();
     dragData.initialLeft = rect.left;
     dragData.initialTop = rect.top;
-    if (e.pointerId != null && typeof rootEl.setPointerCapture === "function") {
-      try {
-        rootEl.setPointerCapture(e.pointerId);
-        dragData.pointerId = e.pointerId;
-      } catch (err) {}
-    }
+    // NOTE: do NOT setPointerCapture on plain pointerdown — capture retargets the click to rootEl,
+    // killing the pill/trigger click for any press with micro-movement. Capture happens when drag arms.
   }
 
   function handleDragMove(e) {
-    if (!dragData.isDragging) return;
+    if (!dragData.pointerArmed) return;
     const dx = (e.clientX || 0) - dragData.startX;
     const dy = (e.clientY || 0) - dragData.startY;
+    if (!dragData.armed) {
+      // arm drag only after 6px of REAL movement — micro-jitter during a press is still a click
+      if (Math.hypot(dx, dy) <= 12) return;
+      dragData.armed = true;
+      dragData.isDragging = true;
+      dragData.tapCandidate = false;
+      if (e.pointerId != null && typeof rootEl.setPointerCapture === "function") {
+        try {
+          rootEl.setPointerCapture(e.pointerId);
+          dragData.pointerId = e.pointerId;
+        } catch (err) {}
+      }
+    }
     if (Math.hypot(dx, dy) > 5) {
       dragData.hasDragged = true;
       rootEl.classList.add("gb-dragging");
@@ -1289,6 +1302,8 @@
   }
 
   function handleDragEnd(e) {
+    dragData.pointerArmed = false;
+    if (!dragData.armed) { dragData.isDragging = false; }  // never-armed press = plain click, hasDragged stays false
     if (dragData.isDragging) {
       if (e && e.stopPropagation) e.stopPropagation();
       rootEl.classList.remove("gb-dragging");
@@ -1303,7 +1318,9 @@
         const finalTop = Math.max(getSafeMinTop(), Math.round(rect.top));
         const finalLeft = Math.max(10, Math.round(rect.left));
         saveStoredPos({ left: finalLeft, top: finalTop });
-        setTimeout(() => { dragData.hasDragged = false; }, 80);
+        // Reset BEFORE the click dispatch (~10-30ms after mouseup): any tap still lands; only REAL drags
+        // hold the suppress flag, and the click they produce targets rootEl anyway (capture-release).
+        setTimeout(() => { dragData.hasDragged = false; }, 0);
       }
       dragData.isDragging = false;
     }
