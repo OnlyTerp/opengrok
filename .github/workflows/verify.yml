@@ -22,5 +22,7 @@ jobs:
         run: node tools/test-provider-maps.cjs
       - name: Contract B — provider-maps-hop.cjs
         run: node tools/test-provider-maps-hop.cjs
+      - name: box harness — 7 suites, 105 checks incl. hop-install E2E
+        run: node box/test/run-all.cjs
       - name: repo self-check (leaks, refs, compile)
         run: python tools/qa.py
