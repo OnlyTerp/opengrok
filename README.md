@@ -127,6 +127,26 @@ python tools/wire-probe.py --base https://api.example.com/v1 --model their-model
 Run it, paste the verdict into a PR with the capture attached.
 `CONTRIBUTING.md` has the contract — **no capture, no merge.**
 
+## 🧠 Codex Everywhere
+
+Codex Everywhere is configured in OpenClaw as the OpenAI **Responses API**
+(`openai-responses`), while Grok Bot speaks Chat Completions. The repository
+ships a local, dependency-free bridge for this protocol boundary:
+
+```bash
+python3 tools/codex-everywhere-bridge.py \
+  --api-key-env CE_API_KEY --port 18795
+```
+
+Provide `CE_API_KEY` through an OS-managed secret environment; never put it in
+`model-bindings.json`. Bind a CE model to the bridge with
+`hopBaseUrl: "http://127.0.0.1:18795/v1"` and the exact model ID, for example
+`gpt-5.6-terra`. The bridge converts `/v1/chat/completions` into
+`/v1/responses`, translates common tool, reasoning, and budget fields, and converts
+JSON/SSE Responses replies back to Chat Completions. See
+[`docs/CODEX-EVERYWHERE.md`](docs/CODEX-EVERYWHERE.md) for the complete setup
+and the current compatibility boundary.
+
 ## 🎙️ Voice assistant (voice/)
 
 A full local realtime voice assistant built on the same wire-truth philosophy:
