@@ -24,6 +24,18 @@
 
 ## ⚡ Quick start
 
+> **What this repo is — and is not.** opengrok is a **config sidecar for an
+> existing Grok Bot install**: it writes model bindings, wire maps, and a
+> health doctor next to your Grok Bot. It does **not** host or emulate Grok
+> Bot, does not control your machine, and does not ship auth shims — your
+> Grok Bot (desktop + optional cloud computer) stays exactly what it is; we
+> only tell it which model to talk to. A "hop" here simply means any
+> OpenAI-compatible base URL (the "OpenAI-compatible base URL" you'd paste in
+> other tools).
+
+**Prerequisites:** a working Grok Bot install (desktop app), Python 3.9+,
+Node 18+ (for the picker/maps), and API keys for any provider you bind.
+
 ```bash
 git clone https://github.com/OnlyTerp/opengrok
 cd opengrok
