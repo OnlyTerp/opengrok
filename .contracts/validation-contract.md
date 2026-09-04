@@ -20,12 +20,12 @@ BLOCKED ≠ failed (one honest attempt, report, stop); nothing pushed without op
 
 | # | Source (isolated, verified live) | Repo destination | Sanitization |
 |---|---|---|---|
-| 1 | `.terp/grokbox/box-fs/openai-hop-session.cjs` (1966 ln, CRLF, node --check OK, 341-test suite green) | `box/openai-hop-session.cjs` (LF) | S-1..S-3 (env-var takeover) |
-| 2 | `.grokbot/harness-shim-work/provider-maps.cjs` (449 ln = box-fs copy byte-identity for CRLF lines) | merge into `tools/provider-maps.cjs` + `tools/provider-maps-hop.cjs` | doc refs only |
-| 3 | `.terp/grokbox/box-fs/reapply-model-bindings-patch.py` (856 ln, LF) | `box/reapply-host-patch.py` | S-1..S-3 |
-| 4 | `.grokbot/grokbot-liquidglass.js` (1797 ln, LF) | `box/liquidglass.js` (+ docs) | S-1..S-4 (roster = user's own bindings) |
-| 5 | `.grokbot/harness-shim-work/test-*.cjs` (m1/m2-full/m2-* /m4 ×2/provider-maps; driver-verified 9/4: m1=11, m2-full=26, m2-adv=19, m2-emp=3, m4-node=14, m4-challenger=25 = 98 unique harness passes; provider-maps merged suite 34/34) | `box/test/*.cjs` | dedupe vs repo suites |
-| 6 | `.terp/grokbox/box-fs/reapply-*` doc refs (PATCHES/SHIP-STATUS/DESIGN-NOTE/BINDINGS-SCHEMA/PARITY) | `docs/BOX-INTEGRATION.md` | rewrite |
+| 1 | machine-local `openai-hop-session.cjs` (1966 ln, CRLF, node --check OK, 341-test suite green) | `box/openai-hop-session.cjs` (LF) | S-1..S-3 (env-var takeover) |
+| 2 | machine-local `provider-maps.cjs` (449 ln = box-fs copy byte-identity for CRLF lines) | merge into `tools/provider-maps.cjs` + `tools/provider-maps-hop.cjs` | doc refs only |
+| 3 | machine-local `reapply-model-bindings-patch.py` (856 ln, LF) | `box/reapply-host-patch.py` | S-1..S-3 |
+| 4 | machine-local `grokbot-liquidglass.js` (1797 ln, LF) | `box/liquidglass.js` (+ docs) | S-1..S-4 (roster = user's own bindings) |
+| 5 | machine-local `test-*.cjs` suites (m1/m2-full/m2-* /m4 ×2/provider-maps; driver-verified 9/4: m1=11, m2-full=26, m2-adv=19, m2-emp=3, m4-node=14, m4-challenger=25 = 98 unique harness passes; provider-maps merged suite 34/34) | `box/test/*.cjs` | dedupe vs repo suites |
+| 6 | machine-local `reapply-*` doc refs (PATCHES/SHIP-STATUS/DESIGN-NOTE/BINDINGS-SCHEMA/PARITY) | `docs/BOX-INTEGRATION.md` | rewrite |
 
 Not ported: box-only bash scripts, `maps-box.cjs` (superseded by #2), `apply_on_box.sh`
 (older parallel of #3), app.asar artifacts, LiquidGlass ASAR injector & pyw overlay
@@ -37,7 +37,7 @@ Not ported: box-only bash scripts, `maps-box.cjs` (superseded by #2), `apply_on_
   (`GROKBOT_HOP_BRIEFING_FILE` / `_S`), generic default with zero names/handles/paths.
 - S-6: metrics paths + tailscale push IP — fs-exists discovery over HOME/XDG env vars,
   never hardcoded user paths; tailscale push only via `GROKBOT_METRICS_RELAY` env.
-- S-7: provider-maps comments de-personalized; `.grokbot/harness-shim-work` literal
+- S-7: provider-maps comments de-personalized; machine-local harness-shim-work literal
   references → repo-relative docs paths.
 - S-8: test fixtures embedded locals (operator name, agent uuid as data) fine ONLY when
   generic context (they fake a bindings dict); real `machine-bindings.json` never read.

@@ -1,7 +1,7 @@
 # opengrok × your Grok Bot box — the integration guide
 
 **TL;DR:** everything in `box/` is the battle-tested code that has been running
-Terp's real Grok Bot box since late August: the hop session that gives any
+the operator's real Grok Bot box since late August: the hop session that gives any
 model a working turn (streaming, tool-calls, context guardian, auto-repair),
 the provider wire maps, and the full harness suite (98 checks). The pull path
 below is safe for the box and takes under a minute.

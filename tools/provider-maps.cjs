@@ -139,7 +139,7 @@ function applyProviderReasoningControls(body, ctx) {
 
 /*
  * GLM (Zhipu bigmodel.cn CODING endpoint) — VERIFIED LIVE 2026-08-27,
- * 7-probe capture vs glm-5.3-flash (~/.terp/glm-wire/glm-capture/).
+ * 7-probe capture vs glm-5.3-flash (machine-local capture dir, not in repo).
  * Verified: top-level thinking:{type:enabled|disabled} + reasoning_effort in
  * {low,medium,high,max} all accepted; BARE requests think by default (~high);
  * thinking:disabled is a TRUE off-switch; "max" is a valid GLM token.
