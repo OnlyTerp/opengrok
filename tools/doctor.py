@@ -274,7 +274,13 @@ def run(fix: bool) -> tuple[int, str]:
                  f"{short} changed vs baseline (review; re-run --init to accept)")
     kb = base.get("bindings", {})
     if kb and (kb.get("sha") != bmeta.get("sha")):
-        emit("WARN", "drift:bindings", f"agent sha changed ({kb.get('sha','')[:8]}…->{bmeta.get('sha','')[:8]}…)")
+        kb_sha = kb.get("sha") or "—"
+        bm_sha = bmeta.get("sha") or "missing"
+        emit("WARN", "drift:bindings", f"agent sha changed ({str(kb_sha)[:8]}…->{str(bm_sha)[:8]}…)")
+    elif kb and not bmeta:
+        # baseline recorded bindings but the file is missing now: doctor must not
+        # wedge (NullType sha arithmetic was the #4 crash); re-init is safe advice.
+        emit("WARN", "drift:bindings", "bindings file missing (baseline has one; re-run --init after setup)")
     kc = base.get("config_flags", {})
     for prov, cur in cfgflags.items():
         prev = kc.get(prov)
