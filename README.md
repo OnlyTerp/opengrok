@@ -181,6 +181,8 @@ See [voice/README.md](voice/README.md) · [voice/SETUP.md](voice/SETUP.md).
 ## 🗺️ Status
 
 - ✅ Working today: Grok, GLM, Claude plans, Gemini (incl. fast lane), DeepSeek, local llama.cpp
+- ✅ **Bundled cloud hosts now supported** — `tools/openai-hop-install.py` installs the consumer into sealed 25 MB builders (the #3/#5/#8/#10 class), behavior-verified by a 105-check harness
+- 🧪 Pattern proven, capture pending: OpenRouter, Groq, Mistral, xAI OAuth
 - 🧪 Pattern proven, capture pending: OpenRouter, Groq, Mistral, xAI OAuth
 - 📄 Docs: [MODEL-GUIDELINES](docs/MODEL-GUIDELINES.md) · [BYOK vs hop](docs/BYOK-DECISION.md) · [FAILURE-MODES](docs/FAILURE-MODES.md) · [CLOUD-HOST](docs/CLOUD-HOST.md) · [ROADMAP](docs/ROADMAP.md)
 
