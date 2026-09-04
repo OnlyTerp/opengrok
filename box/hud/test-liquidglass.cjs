@@ -21,8 +21,8 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-const LIVE = process.env.LG_SRC || "C:/Users/User/.grokbot/grokbot-liquidglass.js";
 const REPO = path.join(__dirname, "liquidglass.js");
+const LIVE = process.env.LG_SRC || REPO; // repo copy = canonical CI fixture; LG_SRC = machine original for negative-control
 
 // ---------------- minimal DOM stub ----------------
 function makeCtx() {
