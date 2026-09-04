@@ -24,7 +24,7 @@
     <text x="435" y="229" text-anchor="middle" fill="#c9c4ff">wire map applies</text>
     <text x="563" y="229" text-anchor="middle" fill="#55556a">→</text>
     <rect x="588" y="200" width="210" height="46" rx="10" fill="#1a1a22" stroke="#33334a"/>
-    <text x="693" y="229" text-anchor="middle" fill="#c9c4ff">talks native</text>
+    <text x="693" y="229" text-anchor="middle" fill="#c9c4ff">verified hop</text>
     <text x="821" y="229" text-anchor="middle" fill="#55556a">→</text>
     <rect x="846" y="200" width="230" height="46" rx="10" fill="#17160f" stroke="#4a4633"/>
     <text x="961" y="229" text-anchor="middle" fill="#d8d8a0">survives updates</text>

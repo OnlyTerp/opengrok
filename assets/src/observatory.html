@@ -1,0 +1,141 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1280px;height:720px;font-family:'Segoe UI',system-ui,sans-serif;
+  background:radial-gradient(1000px 700px at 15% -10%,#1a1440 0%,transparent 60%),
+             radial-gradient(800px 600px at 108% 115%,#0b2a3a 0%,transparent 55%),
+             #0b0e14;
+  color:#e8ecf4;overflow:hidden;position:relative}
+.wrap{position:relative;width:1280px;height:720px;padding:40px 52px;display:flex;flex-direction:column}
+.hdr{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px}
+.hdr h1{font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1.05}
+.grad{background:linear-gradient(92deg,#8ab4ff,#c084fc 45%,#ff8ac2);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hdr .tag{font-size:16px;color:#9aa3bd;margin-top:7px}
+.hdr .tag b{color:#d5dbef;font-weight:600}
+.repo-pill{padding:9px 18px;border-radius:999px;background:rgba(138,180,255,.1);border:1px solid rgba(138,180,255,.35);
+  color:#aac6ff;font-weight:700;font-size:14.5px;white-space:nowrap}
+.stage{flex:1;display:flex;gap:30px;align-items:center}
+/* ===== THE HUD ===== */
+.hud{width:520px;flex:none;border-radius:20px;padding:20px 22px;position:relative;
+  background:linear-gradient(160deg,rgba(23,30,52,.92),rgba(13,18,32,.94));
+  border:1px solid rgba(110,180,255,.35);
+  box-shadow:0 0 0 1px rgba(110,180,255,.08), 0 24px 70px rgba(0,0,0,.6), 0 0 60px rgba(90,150,255,.12), inset 0 1px 0 rgba(255,255,255,.08)}
+.hud-top{display:flex;align-items:center;gap:11px;margin-bottom:15px}
+.hud-top .icon{width:31px;height:31px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;
+  background:linear-gradient(135deg,#7c5cff,#00c2ff);box-shadow:0 4px 14px rgba(120,110,255,.4)}
+.hud-top .name{font-size:18.5px;font-weight:800}
+.hud-top .spacer{flex:1}
+.hud-top .sqbtn{width:27px;height:27px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;color:#9aa3bd;font-size:13px}
+.collapse{padding:6px 13px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  color:#c5cde2;font-size:12.5px;font-weight:600}
+.bind{border-radius:15px;padding:15px 16px;background:rgba(16,24,44,.85);border:1px solid rgba(120,170,255,.22);margin-bottom:13px}
+.bind-head{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.bind-head .robo{width:27px;height:27px;border-radius:8px;background:rgba(138,180,255,.15);display:flex;align-items:center;justify-content:center;font-size:15px}
+.bind-head .botname{font-size:15px;font-weight:700}
+.bind-head .hop{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:800;letter-spacing:.4px;
+  background:rgba(74,222,128,.14);border:1px solid rgba(74,222,128,.5);color:#4ade80;box-shadow:0 0 14px rgba(74,222,128,.25)}
+.modelrow{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:11px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);font-size:15.5px;font-weight:700;color:#7dd3fc;margin-bottom:8px}
+.modelrow .chev{margin-left:auto;color:#8b93ad}
+.wire{font-size:12px;color:#7d86a2;font-family:'Cascadia Code',Consolas,monospace}
+.wire b{color:#9aa3bd;font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px}
+.cell{border-radius:12px;padding:12px 14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09)}
+.cell .h{display:flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:1.3px;color:#7d86a2;margin-bottom:7px}
+.cell .v{font-size:15.5px;font-weight:700}
+.v-mint{color:#6ee7a8}.v-cyan{color:#7dd3fc}.v-white{color:#eef2fb}.v-gold{color:#fbbf24}
+.guard{border-radius:12px;padding:12px 15px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);margin-bottom:13px}
+.guard .row{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:1.2px;color:#7d86a2;margin-bottom:8px}
+.guard .row .pct{margin-left:auto;font-family:'Cascadia Code',Consolas,monospace;color:#7dd3fc;font-size:12.5px;letter-spacing:0}
+.bar{height:6px;border-radius:99px;background:rgba(255,255,255,.08);position:relative;overflow:hidden}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;width:34%;border-radius:99px;background:linear-gradient(90deg,#22d3ee,#7dd3fc)}
+.bar .dot{position:absolute;left:34%;top:50%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;
+  background:#7dd3fc;box-shadow:0 0 10px #7dd3fc}
+.links{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.lnk{font-size:13px;font-weight:600;color:#8ab4ff}
+.lnk.cy{color:#7dd3fc}
+.btn{margin-left:auto;padding:8px 14px;border-radius:10px;background:rgba(138,180,255,.12);border:1px solid rgba(138,180,255,.3);
+  color:#cdd9ff;font-size:12.5px;font-weight:700}
+.btn + .btn{margin-left:0}
+/* ===== right callouts ===== */
+.right{flex:1;display:flex;flex-direction:column;gap:11px}
+.fcard{display:flex;gap:13px;align-items:flex-start;padding:13px 17px;border-radius:14px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1)}
+.fcard .ico{width:36px;height:36px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;
+  background:linear-gradient(135deg,rgba(138,180,255,.25),rgba(192,132,252,.12));border:1px solid rgba(138,180,255,.3)}
+.fcard b{font-size:14.5px;display:block;margin-bottom:2px;color:#eef2fb}
+.fcard p{font-size:12.5px;color:#9aa3bd;line-height:1.4}
+.fcard p code{color:#7dd3fc;font-family:'Cascadia Code',Consolas,monospace;font-size:12px}
+.fcard p .mint{color:#4ade80;font-weight:700}
+.foot{margin-top:18px;display:flex;align-items:center;gap:14px;color:#7d86a2;font-size:14px}
+.foot .sep{width:1px;height:14px;background:rgba(255,255,255,.15)}
+.foot b{color:#c5cde2}
+.badge28{position:absolute;top:-13px;right:-13px;width:64px;height:64px;border-radius:50%;
+  background:linear-gradient(135deg,#ff8ac2,#c084fc);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 8px 24px rgba(255,138,194,.35);transform:rotate(8deg)}
+.badge28 .n{font-size:21px;font-weight:900;color:#fff;line-height:1}
+.badge28 .l{font-size:8.5px;font-weight:800;color:rgba(255,255,255,.9);letter-spacing:1px}
+.spark{position:absolute;color:#ffd76a;font-size:16px;opacity:.7}
+</style></head><body>
+<div class="wrap">
+  <div class="hdr">
+    <div>
+      <h1>LiquidGlass <span class="grad">Observatory</span></h1>
+      <div class="tag">a frosted mission-control deck inside <b>Grok Bot</b> — swap any agent's brain while it's talking ✨</div>
+    </div>
+    <div class="repo-pill">github.com/OnlyTerp/opengrok</div>
+  </div>
+  <div class="stage">
+    <div class="hud">
+      <div class="badge28"><div class="n">28</div><div class="l">BOTS</div></div>
+      <div class="hud-top">
+        <div class="icon">🔭</div>
+        <div class="name">LiquidGlass Observatory</div>
+        <div class="spacer"></div>
+        <div class="sqbtn">✢</div>
+        <div class="collapse">Collapse —</div>
+      </div>
+      <div class="bind">
+        <div class="bind-head">
+          <div class="robo">🤖</div><div class="botname">New Bot</div>
+          <div class="hop">● VERIFIED HOP</div>
+        </div>
+        <div class="modelrow">🧠 qwen3.8-max <span class="chev">▾</span></div>
+        <div class="wire">Wire: <b>http://127.0.0.1:18786/v1</b> · Protected by Guardian</div>
+      </div>
+      <div class="grid">
+        <div class="cell"><div class="h">⚡ THROUGHPUT</div><div class="v v-mint">Ready (Awaiting turn)</div></div>
+        <div class="cell"><div class="h">⏱ TTFT LATENCY</div><div class="v v-cyan">0 ms</div></div>
+        <div class="cell"><div class="h">📥 IN / OUT TOKENS</div><div class="v v-white">0 / 0</div></div>
+        <div class="cell"><div class="h">💎 PROMPT CACHE</div><div class="v v-gold">0.0%</div></div>
+      </div>
+      <div class="guard">
+        <div class="row">🛡 CONTEXT GUARDIAN <span class="pct">34% of 256k</span></div>
+        <div class="bar"><div class="fill"></div><div class="dot"></div></div>
+      </div>
+      <div class="links">
+        <span class="lnk">▶ Show All Bots (28)</span>
+        <span class="lnk cy">🩺 Diagnostics &amp; Logs</span>
+        <span class="btn">🔄 Reset Chat</span>
+        <span class="btn">📄 Copy Proof</span>
+      </div>
+    </div>
+    <div class="right">
+      <div class="fcard"><div class="ico">🧠</div><div><b>Swap the brain mid-chat</b><p>Pick any model from the dropdown — <code>qwen3.8-max</code>, Claude, GLM, Gemini. Next reply rides the new lane. No restart.</p></div></div>
+      <div class="fcard"><div class="ico">✅</div><div><b><span class="mint">VERIFIED HOP</span> — not vibes</b><p>Every switch confirmed end-to-end through the hop proxy before it counts. Copy Proof gives you the receipt.</p></div></div>
+      <div class="fcard"><div class="ico">📊</div><div><b>Live telemetry per bot</b><p>Throughput, TTFT, token flow, prompt-cache hit — refreshed in real time while the agent works.</p></div></div>
+      <div class="fcard"><div class="ico">🛡</div><div><b>Context Guardian</b><p>Live bar against the 256k window — long marathons never get clipped mid-run.</p></div></div>
+      <div class="fcard"><div class="ico">🫧</div><div><b>Zero install, survives Grok's silent updates</b><p>Injected into the Grok Bot bundle by <code>opengrok</code>. Open source, MIT.</p></div></div>
+    </div>
+  </div>
+  <div class="foot">
+    <span>built by <b>@onlyterp</b></span><span class="sep"></span>
+    <span>not farming you, arming you 💜</span><span class="sep"></span>
+    <span>fully open · github.com/OnlyTerp/opengrok</span>
+  </div>
+  <div class="spark" style="top:36px;left:700px">✦</div>
+  <div class="spark" style="bottom:80px;right:50px">✦</div>
+  <div class="spark" style="top:380px;left:26px">✦</div>
+</div>
+</body></html>

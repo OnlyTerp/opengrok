@@ -48,7 +48,7 @@
   </g>
 
   <text x="88" y="230" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="108" font-weight="800" fill="#e6e6ea" letter-spacing="-2">open<tspan fill="url(#acc)">grok</tspan></text>
-  <text x="92" y="300" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="34" fill="#9a9aad">run any model in Grok Bot — natively, and update-proof</text>
+  <text x="92" y="300" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="34" fill="#9a9aad">run any model in Grok Bot — with the LiquidGlass Observatory</text>
 
   <!-- pipeline strip -->
   <g font-family="Consolas, Menlo, monospace" font-size="20">
@@ -59,7 +59,7 @@
     <text x="444" y="395" text-anchor="middle" fill="#c9c4ff">wire map applies</text>
     <text x="566" y="395" text-anchor="middle" fill="#55556a">→</text>
     <rect x="580" y="360" width="216" height="56" rx="12" fill="#1a1a22" stroke="#33334a"/>
-    <text x="688" y="395" text-anchor="middle" fill="#c9c4ff">talks native</text>
+    <text x="688" y="395" text-anchor="middle" fill="#c9c4ff">verified hop</text>
     <text x="810" y="395" text-anchor="middle" fill="#55556a">→</text>
     <rect x="824" y="360" width="240" height="56" rx="12" fill="#17160f" stroke="#4a4633"/>
     <text x="944" y="395" text-anchor="middle" fill="#d8d8a0">survives updates</text>

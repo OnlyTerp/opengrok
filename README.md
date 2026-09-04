@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hero.png" alt="open·grok — run any model in Grok Bot: one model per agent, pick, test, save. keys stay on your machine. pick a model → wire map applies → talks native → survives updates" width="100%">
+  <img src="assets/hero.png" alt="open·grok — run any model in Grok Bot: pick a model, wire map applies, verified hop, survives updates. keys stay on your machine. now with the LiquidGlass Observatory." width="100%">
 </p>
 
 <p align="center">
@@ -19,8 +19,26 @@
 ---
 
 <p align="center">
-  <img src="assets/picker.png" alt="the model picker — one dropdown per agent" width="640">
+  <img src="assets/observatory.png" alt="the LiquidGlass Observatory — swap any agent's model mid-chat, verified hops, live telemetry per bot, context guardian" width="780">
 </p>
+
+## ✨ The LiquidGlass Observatory
+
+The old picker was a dropdown. This is the deck it grew into — a frosted-glass
+mission-control panel that lives **inside** the Grok Bot window itself:
+
+- **Swap the brain mid-chat.** Pick any bound model from the glass dropdown —
+  Claude, GLM, Qwen, Gemini — and the agent's next reply rides the new lane. No restart.
+- **VERIFIED HOP.** Every switch is confirmed end-to-end through the hop proxy
+  before it counts; **Copy Proof** hands you the receipt.
+- **Live telemetry per bot.** Throughput, TTFT latency, token flow and prompt-cache
+  hit rate, refreshed while the agent works.
+- **Context Guardian.** Live bar against the 256k window so long marathons never
+  clip mid-run.
+- **28 bots on one deck.** `Show All Bots` walks the whole fleet; Diagnostics &
+  Logs digs into the hop, Reset Chat clears a stuck thread.
+- **Zero install into Grok.** Injected into the app bundle by opengrok, rides
+  silent Grok updates, MIT.
 
 ## ⚡ Quick start
 
@@ -182,7 +200,7 @@ See [voice/README.md](voice/README.md) · [voice/SETUP.md](voice/SETUP.md).
 
 - ✅ Working today: Grok, GLM, Claude plans, Gemini (incl. fast lane), DeepSeek, local llama.cpp
 - ✅ **Bundled cloud hosts now supported** — `tools/openai-hop-install.py` installs the consumer into sealed 25 MB builders (the #3/#5/#8/#10 class), behavior-verified by a 105-check harness
-- 🧪 Pattern proven, capture pending: OpenRouter, Groq, Mistral, xAI OAuth
+- ✅ **LiquidGlass Observatory** — in-app frosted HUD: mid-chat model swaps, verified hops, per-bot telemetry, context guardian
 - 🧪 Pattern proven, capture pending: OpenRouter, Groq, Mistral, xAI OAuth
 - 📄 Docs: [MODEL-GUIDELINES](docs/MODEL-GUIDELINES.md) · [BYOK vs hop](docs/BYOK-DECISION.md) · [FAILURE-MODES](docs/FAILURE-MODES.md) · [CLOUD-HOST](docs/CLOUD-HOST.md) · [ROADMAP](docs/ROADMAP.md)
 

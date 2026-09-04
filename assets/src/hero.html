@@ -1,66 +1,138 @@
 <!doctype html>
-<html><head><meta charset="utf-8">
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { width:1200px; height:600px; overflow:hidden;
-         font-family:'Segoe UI', system-ui, -apple-system, sans-serif; }
-  .hero { position:relative; width:1200px; height:600px;
-          background:radial-gradient(900px 500px at 18% -10%, #1c1533 0%, rgba(28,21,51,0) 55%),
-                     linear-gradient(135deg, #0d0c18 0%, #141126 60%, #17132b 100%); }
-  .grid { position:absolute; inset:0;
-          background-image:linear-gradient(rgba(124,108,255,.045) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(124,108,255,.045) 1px, transparent 1px);
-          background-size:48px 48px;
-          -webkit-mask-image:radial-gradient(80% 90% at 50% 40%, #000 30%, transparent 100%); }
-  .left { position:absolute; left:72px; top:88px; width:600px; }
-  .brand { font-size:78px; font-weight:800; letter-spacing:-0.03em; color:#e9e9f2; line-height:1; }
-  .brand .g { background:linear-gradient(92deg,#a78bfa 0%, #7c6cff 55%, #6a5be0 100%);
-              -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .tag { margin-top:16px; font-size:23px; color:#a3a3bd; }
-  .tag b { color:#d6d6e6; font-weight:600; }
-  .pipe { display:flex; align-items:center; gap:8px; margin-top:44px;
-          font-family:Consolas, Menlo, monospace; font-size:15px; }
-  .pill { padding:10px 15px; border-radius:11px; background:rgba(26,26,34,.85);
-          border:1px solid #34334a; color:#c9c4ff; white-space:nowrap; }
-  .pill.gold { background:rgba(35,32,14,.85); border-color:#4a4633; color:#d8d8a0; }
-  .arr { color:#55556a; font-size:15px; }
-  .sub { margin-top:42px; font-size:17px; color:#8f8fae; }
-  .sub .dot { color:#5f5f80; margin:0 10px; }
-  .motto { position:absolute; left:72px; bottom:46px; display:flex; align-items:center; gap:14px; }
-  .motto .bar { width:46px; height:5px; border-radius:3px;
-                background:linear-gradient(90deg,#a78bfa,#7c6cff); }
-  .motto .t { font-size:19px; font-weight:600; color:#dcdce8; }
-  .motto .u { font-family:Consolas, Menlo, monospace; font-size:14.5px; color:#6c6c8c; margin-left:8px; }
-  .shot { position:absolute; right:88px; top:64px; width:330px; }
-  .glow { position:absolute; inset:-38px; border-radius:36px;
-          background:radial-gradient(closest-side, rgba(124,108,255,.28), rgba(124,108,255,.10) 55%, transparent 75%);
-          filter:blur(6px); z-index:0; }
-  .frame { position:relative; z-index:1; border-radius:20px; overflow:hidden;
-           border:1px solid #2c2b40;
-           box-shadow:0 34px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.08); }
-  .frame img { display:block; width:330px; }
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1200px;height:600px;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;color:#e8ecf4}
+.hero{position:relative;width:1200px;height:600px;
+  background:radial-gradient(900px 500px at 18% -10%,#1a1440 0%,rgba(26,20,64,0) 55%),
+             radial-gradient(700px 500px at 108% 115%,#0b2a3a 0%,transparent 55%),
+             linear-gradient(135deg,#0b0e14 0%,#100e1c 60%,#131024 100%)}
+.gridbg{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(124,108,255,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(124,108,255,.045) 1px,transparent 1px);
+  background-size:48px 48px;
+  -webkit-mask-image:radial-gradient(80% 90% at 50% 40%,#000 30%,transparent 100%)}
+.left{position:absolute;left:64px;top:64px;width:560px}
+.brand{font-size:68px;font-weight:800;letter-spacing:-.03em;color:#eef2fb;line-height:1}
+.brand .g{background:linear-gradient(92deg,#8ab4ff,#c084fc 50%,#ff8ac2);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tag{margin-top:14px;font-size:21px;color:#a3a8c0}
+.tag b{color:#dde2f2;font-weight:600}
+.pipe{display:flex;align-items:center;gap:8px;margin-top:36px;font-family:'Cascadia Code',Consolas,monospace;font-size:14px}
+.pill{padding:9px 14px;border-radius:11px;background:rgba(26,26,38,.85);border:1px solid #34334a;color:#c9c4ff;white-space:nowrap}
+.pill.gold{background:rgba(35,32,14,.85);border-color:#4a4633;color:#d8d8a0}
+.pill.cyan{background:rgba(14,35,44,.85);border-color:#2b5566;color:#8ad6f0}
+.arr{color:#55556a;font-size:14px}
+.sub{margin-top:34px;font-size:16px;color:#8f94ae}
+.sub .dot{color:#5f5f80;margin:0 10px}
+.motto{position:absolute;left:64px;bottom:40px;display:flex;align-items:center;gap:14px}
+.motto .bar{width:46px;height:5px;border-radius:3px;background:linear-gradient(90deg,#8ab4ff,#c084fc)}
+.motto .t{font-size:18px;font-weight:600;color:#dce0ec}
+.motto .u{font-family:'Cascadia Code',Consolas,monospace;font-size:13.5px;color:#6c6c8c;margin-left:8px}
+/* ===== compact observatory card ===== */
+.hud{position:absolute;right:56px;top:46px;width:430px;border-radius:18px;padding:18px 20px;
+  background:linear-gradient(160deg,rgba(23,30,52,.92),rgba(13,18,32,.94));
+  border:1px solid rgba(110,180,255,.35);
+  box-shadow:0 0 0 1px rgba(110,180,255,.08),0 30px 70px rgba(0,0,0,.6),0 0 60px rgba(90,150,255,.14),inset 0 1px 0 rgba(255,255,255,.08)}
+.hud-top{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.hud-top .icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;
+  background:linear-gradient(135deg,#7c5cff,#00c2ff);box-shadow:0 4px 14px rgba(120,110,255,.4)}
+.hud-top .name{font-size:16.5px;font-weight:800}
+.hud-top .spacer{flex:1}
+.hud-top .sqbtn{width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  display:flex;align-items:center;justify-content:center;color:#9aa3bd;font-size:12px}
+.collapse{padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  color:#c5cde2;font-size:11.5px;font-weight:600}
+.bind{border-radius:13px;padding:13px 14px;background:rgba(16,24,44,.85);border:1px solid rgba(120,170,255,.22);margin-bottom:11px}
+.bind-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bind-head .robo{width:24px;height:24px;border-radius:7px;background:rgba(138,180,255,.15);display:flex;align-items:center;justify-content:center;font-size:13px}
+.bind-head .botname{font-size:13.5px;font-weight:700}
+.bind-head .hop{margin-left:auto;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.4px;
+  background:rgba(74,222,128,.14);border:1px solid rgba(74,222,128,.5);color:#4ade80;box-shadow:0 0 12px rgba(74,222,128,.25)}
+.modelrow{display:flex;align-items:center;gap:8px;padding:10px 13px;border-radius:10px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);font-size:14px;font-weight:700;color:#7dd3fc;margin-bottom:7px}
+.modelrow .chev{margin-left:auto;color:#8b93ad}
+.wire{font-size:10.5px;color:#7d86a2;font-family:'Cascadia Code',Consolas,monospace}
+.wire b{color:#9aa3bd;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+.cell{border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09)}
+.cell .h{display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:800;letter-spacing:1.2px;color:#7d86a2;margin-bottom:6px}
+.cell .v{font-size:13.5px;font-weight:700}
+.v-mint{color:#6ee7a8}.v-cyan{color:#7dd3fc}.v-white{color:#eef2fb}.v-gold{color:#fbbf24}
+.guard{border-radius:10px;padding:10px 13px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);margin-bottom:11px}
+.guard .row{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;letter-spacing:1.1px;color:#7d86a2;margin-bottom:7px}
+.guard .row .pct{margin-left:auto;font-family:'Cascadia Code',Consolas,monospace;color:#7dd3fc;font-size:11px;letter-spacing:0}
+.bar{height:5px;border-radius:99px;background:rgba(255,255,255,.08);position:relative}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;width:34%;border-radius:99px;background:linear-gradient(90deg,#22d3ee,#7dd3fc)}
+.bar .dot{position:absolute;left:34%;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;
+  background:#7dd3fc;box-shadow:0 0 8px #7dd3fc}
+.links{display:flex;align-items:center;gap:11px}
+.lnk{font-size:11.5px;font-weight:600;color:#8ab4ff}
+.lnk.cy{color:#7dd3fc}
+.btn{margin-left:auto;padding:7px 12px;border-radius:9px;background:rgba(138,180,255,.12);border:1px solid rgba(138,180,255,.3);
+  color:#cdd9ff;font-size:11px;font-weight:700}
+.btn + .btn{margin-left:0}
+.badge28{position:absolute;top:-12px;right:-12px;width:58px;height:58px;border-radius:50%;
+  background:linear-gradient(135deg,#ff8ac2,#c084fc);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 8px 22px rgba(255,138,194,.35);transform:rotate(8deg)}
+.badge28 .n{font-size:19px;font-weight:900;color:#fff;line-height:1}
+.badge28 .l{font-size:7.5px;font-weight:800;color:rgba(255,255,255,.9);letter-spacing:1px}
+.newtag{position:absolute;top:-13px;left:18px;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.6px;
+  background:linear-gradient(90deg,#8ab4ff,#c084fc);color:#0b0e14;box-shadow:0 6px 18px rgba(138,180,255,.35)}
+.spark{position:absolute;color:#ffd76a;font-size:15px;opacity:.7}
 </style></head>
 <body>
 <div class="hero">
-  <div class="grid"></div>
+  <div class="gridbg"></div>
   <div class="left">
     <div class="brand">open<span class="g">·grok</span></div>
-    <div class="tag">run <b>any model</b> in Grok Bot — natively, and update-proof</div>
+    <div class="tag">run <b>any model</b> in Grok Bot — now with the <b>LiquidGlass Observatory</b></div>
     <div class="pipe">
       <span class="pill">pick a model</span><span class="arr">→</span>
       <span class="pill">wire map</span><span class="arr">→</span>
-      <span class="pill">talks native</span><span class="arr">→</span>
+      <span class="pill cyan">verified hop</span><span class="arr">→</span>
       <span class="pill gold">survives updates</span>
     </div>
-    <div class="sub">keys stay on your machine<span class="dot">·</span>evidence-based maps<span class="dot">·</span>one command to start</div>
+    <div class="sub">keys stay on your machine<span class="dot">·</span>live telemetry per bot<span class="dot">·</span>one command to start</div>
   </div>
   <div class="motto">
     <span class="bar"></span><span class="t">not farming you, arming you.</span>
     <span class="u">github.com/OnlyTerp/opengrok</span>
   </div>
-  <div class="shot">
-    <div class="glow"></div>
-    <div class="frame"><img src="../appmock.png"></div>
+  <div class="hud">
+    <div class="newtag">✦ NEW — LIQUIDGLASS</div>
+    <div class="badge28"><div class="n">28</div><div class="l">BOTS</div></div>
+    <div class="hud-top">
+      <div class="icon">🔭</div>
+      <div class="name">LiquidGlass Observatory</div>
+      <div class="spacer"></div>
+      <div class="sqbtn">✢</div>
+      <div class="collapse">Collapse —</div>
+    </div>
+    <div class="bind">
+      <div class="bind-head">
+        <div class="robo">🤖</div><div class="botname">New Bot</div>
+        <div class="hop">● VERIFIED HOP</div>
+      </div>
+      <div class="modelrow">🧠 qwen3.8-max <span class="chev">▾</span></div>
+      <div class="wire">Wire: <b>http://127.0.0.1:18786/v1</b> · Guardian</div>
+    </div>
+    <div class="grid2">
+      <div class="cell"><div class="h">⚡ THROUGHPUT</div><div class="v v-mint">Ready</div></div>
+      <div class="cell"><div class="h">⏱ TTFT</div><div class="v v-cyan">0 ms</div></div>
+      <div class="cell"><div class="h">📥 IN / OUT</div><div class="v v-white">0 / 0</div></div>
+      <div class="cell"><div class="h">💎 CACHE</div><div class="v v-gold">0.0%</div></div>
+    </div>
+    <div class="guard">
+      <div class="row">🛡 CONTEXT GUARDIAN <span class="pct">34% of 256k</span></div>
+      <div class="bar"><div class="fill"></div><div class="dot"></div></div>
+    </div>
+    <div class="links">
+      <span class="lnk">▶ Show All Bots (28)</span>
+      <span class="lnk cy">🩺 Diagnostics</span>
+      <span class="btn">🔄 Reset Chat</span>
+      <span class="btn">📄 Copy Proof</span>
+    </div>
   </div>
+  <div class="spark" style="top:30px;left:620px">✦</div>
+  <div class="spark" style="bottom:110px;left:600px">✦</div>
 </div>
 </body></html>
