@@ -269,7 +269,7 @@ def run(fix: bool) -> tuple[int, str]:
     kbase = base.get("files", {})
     for path, h in file_shas.items():
         if path in kbase and kbase[path] != h:
-            short = path.split("/")[-1]
+            short = Path(path).name
             emit(h == "MISSING" and "FAIL" or "WARN", "drift:file",
                  f"{short} changed vs baseline (review; re-run --init to accept)")
     kb = base.get("bindings", {})

@@ -30,7 +30,7 @@ const PATTERNS = [
   { name: 'openai-key', re: /sk-[A-Za-z0-9_-]{20,}/ },
   { name: 'jwt-fragment', re: /eyJ[A-Za-z0-9_-]{10,}/ },
   { name: 'bearer-literal', re: /Bearer\s+[A-Za-z0-9_\-\.]{25,}/ },
-  { name: 'private-ip-binding', re: /0\.0\.0\.0:(?!0\b)/ }
+  { name: 'private-ip-binding', re: /0\.0\.0\.0(:(?!0\b)|['"])/ }
 ];
 
 let hits = 0;

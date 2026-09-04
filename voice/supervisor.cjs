@@ -10,7 +10,7 @@ const { log, appendTeachNote, CONSULT_DEFAULT, EL_VOICE, EL_MODEL, EL_RATE } = r
 const { FrameDecoder, wsAcceptKey, uiSendFrame } = require('./lib/ws-raw.cjs');
 
 const PORT = Number(process.env.VOICE_GW_PORT || 18793);
-const HOST = '0.0.0.0';
+const HOST = process.env.VOICE_GW_HOST || '127.0.0.1';
 const ROOT = __dirname;
 
 const kids = {
