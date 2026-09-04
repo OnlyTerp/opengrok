@@ -14,7 +14,7 @@ perfect." Two inputs:
 
 **Hard laws inherited from repo + operator:** no personal identifiers/paths/IPs in
 tracked files; no fixture-only capability (drive real entry points); exits are truth;
-BLOCKED ≠ failed (one honest attempt, report, stop); nothing pushed without Terp GO.
+BLOCKED ≠ failed (one honest attempt, report, stop); nothing pushed without operator GO.
 
 ## File inventory (port plan)
 
@@ -71,7 +71,7 @@ Not ported: box-only bash scripts, `maps-box.cjs` (superseded by #2), `apply_on_
 
 ## Done definition
 
-V-1..V-5 real-exit-code PASS (no fixture-only lane), Terp-verifiable summary citing
+V-1..V-5 real-exit-code PASS (no fixture-only lane), operator-verifiable summary citing
 ticket refs + exit codes, full push/PR actions presented as a proposal. "Perfect" =
 a stranger can clone → setup → pick → save → see the binding consumed — with the
 honest-state doc that says exactly when stock hosts cannot (and what replaces it).
@@ -79,4 +79,4 @@ honest-state doc that says exactly when stock hosts cannot (and what replaces it
 ## Blocked ≠ failed
 
 No ✓ fabrication. Live-wire (on-box) patch validation is BLOCKED (no box access
-without interrupting Terp's session); reported as such with what unblocks it.
+without interrupting the operator's session); reported as such with what unblocks it.

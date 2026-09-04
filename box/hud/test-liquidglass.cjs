@@ -8,7 +8,7 @@
  * Gates:
  *  1. MIN_TOP floor is now BELOW the native band (56), not 46 — the old value let the pill
  *     rest inside the Windows titleBarOverlay drag band (~51/52px), where every click moved
- *     the whole Grok Bot window and the HUD became unusable (Terp's repro).
+ *     the whole Grok Bot window and the HUD became unusable (original user repro).
  *  2. Stored positions inside the band are auto-healed (getStoredPos returns null -> default).
  *  3. saveStoredPos clamps to the dynamic safe floor.
  *  4. applyPosition clamps top to >= safe floor (never paints inside the band).
