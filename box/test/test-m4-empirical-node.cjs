@@ -553,7 +553,7 @@ async function runAll() {
 
   await check("Security: Malformed / Non-Loopback hopBaseUrl fails with LocalProviderBindingError", async () => {
     const invalidHopUrls = [
-      "http://192.168.1.100:18786/v1", // Non-loopback
+      "http://203.0.113.10:18786/v1", // Non-loopback (TEST-NET-3 doc range)
       "http://attacker.com/v1",         // Remote domain SSRF
       "https://127.0.0.1:18786/v1",     // Non-http protocol
       "http://user:pass@127.0.0.1:18786/v1", // Embedded credentials
