@@ -39,6 +39,7 @@ import json
 import logging
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -49,6 +50,7 @@ MAX_BODY = 64 * 1024 * 1024
 TIMEOUT = float(os.environ.get("PLAN_HOP_TIMEOUT", "1800"))  # long agent turns
 ROUTES: dict = {}
 CFG: dict = {}
+USAGE: dict = {}  # per-route call counter for the HUD's "who is doing the work" panel
 
 
 def load_config(path: str) -> dict:
@@ -90,6 +92,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/healthz":
             return self._json(200, {"ok": True, "routes": sorted(ROUTES)})
+        if self.path == "/usage":
+            return self._json(200, {
+                "ok": True,
+                "since": USAGE.get("_started"),
+                "calls": {k: v for k, v in USAGE.items() if k != "_started"},
+            })
         if self.path == "/v1/models":
             data = [
                 {
@@ -119,6 +127,7 @@ class Handler(BaseHTTPRequestHandler):
         if route is None:
             return self._json(404, {"error": {
                 "message": f"plan-hop: unknown model {model!r}", "routes": sorted(ROUTES)}})
+        USAGE[model] = USAGE.get(model, 0) + 1
 
         # default_body fills keys the client did not set (e.g. effort preset)
         for k, v in (route.get("default_body") or {}).items():
@@ -180,6 +189,7 @@ def main():
     global CFG, ROUTES
     CFG = load_config(args.config)
     ROUTES = CFG["routes"]
+    USAGE["_started"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     host = args.host or CFG.get("host", "127.0.0.1")
     port = args.port or int(CFG.get("port", 18784))
     srv = ThreadingHTTPServer((host, port), Handler)

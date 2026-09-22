@@ -968,6 +968,7 @@
           <span style="color:#38bdf8" id="gb-pill-speed">⚡${speedShort}</span>
           <span style="color:${ctxNum > 75 ? "#f43f5e" : (ctxNum > 50 ? "#fbbf24" : "#34d399")}" id="gb-pill-ctx">${ctxShort}%</span>
           <span style="color:#38bdf8; margin-left:2px">✦</span>
+        <span id="gb-pill-usage" title="routed calls on your plan lanes" style="color:#94a3b8"></span>
         </div>
       `;
 
@@ -1087,6 +1088,7 @@
             <div class="gb-diag-log" id="gb-diag-live-log">
               Probing 6 lanes… live status on each row above.
             </div>
+            <div id="gb-usage-list" style="margin:6px 0"></div>
             <button class="gb-btn" id="gb-copy-diag-btn" style="width:100%; margin-top:6px">📋 Copy Diagnostic Bundle</button>
           </div>
         `;
@@ -1707,6 +1709,29 @@
     }
     setTimeout(poll, 400);
   }
+
+  // --- LANDED WORK visibility: who is actually doing the work (plan-hop usage) ---
+  async function refreshUsage() {
+    try {
+      const r = await fetch("http://127.0.0.1:18784/usage", { cache: "no-store" });
+      if (!r.ok) return;
+      const u = await r.json();
+      const calls = (u && u.calls) || {};
+      let total = 0;
+      for (const k in calls) total += calls[k];
+      const hint = document.getElementById("gb-pill-usage");
+      if (hint) hint.textContent = total > 0 ? " ⌁" + total : "";
+      const list = document.getElementById("gb-usage-list");
+      if (list) {
+        const rows = Object.keys(calls).sort()
+          .map(k => `<div class="gb-diag-row"><span>${k}</span><span>${calls[k]} calls</span></div>`).join("");
+        list.innerHTML = `<div style="font-weight:700; color:#38bdf8; margin-bottom:4px">⌁ LANDED WORK · plan-hop since ${u.since || "?"}</div>` +
+          (rows || '<div class="gb-diag-row"><span>no routed calls yet</span><span></span></div>');
+      }
+    } catch (e) {}
+  }
+  if (typeof setInterval === "function") { setInterval(refreshUsage, 5000); }
+  refreshUsage();
 
   render(true);
   poll();
