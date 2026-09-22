@@ -127,7 +127,6 @@ class Handler(BaseHTTPRequestHandler):
         if route is None:
             return self._json(404, {"error": {
                 "message": f"plan-hop: unknown model {model!r}", "routes": sorted(ROUTES)}})
-        USAGE[model] = USAGE.get(model, 0) + 1
 
         # default_body fills keys the client did not set (e.g. effort preset)
         for k, v in (route.get("default_body") or {}).items():
@@ -146,6 +145,7 @@ class Handler(BaseHTTPRequestHandler):
         log.info("route %s -> %s", model, route["upstream"])
         try:
             up = urllib.request.urlopen(req, timeout=TIMEOUT)
+            USAGE[model] = USAGE.get(model, 0) + 1  # answered calls only: upstream accepted
         except urllib.error.HTTPError as e:
             data = e.read()
             self.send_response(e.code)

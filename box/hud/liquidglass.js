@@ -1710,6 +1710,217 @@
     setTimeout(poll, 400);
   }
 
+  // --- GLASS TURN ROUTER: bound agents answer from the picker model, not Grok ---
+  // Intercepts composer Enter (capture phase beats React root delegation) ONLY for
+  // agents with a real binding (modelId + hopBaseUrl). Unbound agents, empty text,
+  // and every error path fall through to the native submit - uncertain means native.
+  const GLASS_ROUTED = new Set();
+  let glassInterceptArmed = true;
+
+  function uuid4() {
+    try { return crypto.randomUUID(); } catch (e) {}
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  }
+
+  function effortBody(provider, effort) {
+    if (!effort) return {};
+    const v = String(effort).toLowerCase();
+    if (provider === "xai" || provider === "grok" || provider === "grok-superheavy") {
+      return { reasoning_effort: v === "max" ? "xhigh" : v };
+    }
+    return { reasoning_effort: v };
+  }
+
+  async function replicaEntries(aid) {
+    try {
+      const persistence = window.desktop?.agent?.clientPersistence;
+      if (!aid || !persistence) return null;
+      if (!nativeReplicaPrefix) {
+        const keys = await persistence.listKeys("");
+        const suffix = ".transcript.replicas." + aid;
+        const key = keys.find(value => value.endsWith(suffix));
+        if (!key) return null;
+        nativeReplicaPrefix = key.slice(0, -aid.length);
+      }
+      const raw = await persistence.read(nativeReplicaPrefix + aid);
+      if (typeof raw !== "string") return null;
+      const replica = JSON.parse(raw);
+      if (!replica || !replica.value || !Array.isArray(replica.value.entries)) return null;
+      return { replica, key: nativeReplicaPrefix + aid };
+    } catch (e) { return null; }
+  }
+
+  async function glassRoutedTurn(text) {
+    const started = Date.now();
+    let firstTokenAt = 0;
+    try {
+      const aid = resolveActiveAgentId();
+      const bound = (aid && bindings[aid]) || null;
+      if (!bound || !bound.modelId || !bound.hopBaseUrl) return false;
+      const store = await replicaEntries(aid);
+      if (!store) return false;
+
+      const requestId = uuid4();
+      const now = Date.now();
+      const userEntry = {
+        kind: "message", id: "u" + now.toString(36) + Math.floor(Math.random() * 1e4),
+        role: "user", content: text,
+        richText: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] }),
+        isStreaming: false, timestampMs: now, clientNonce: uuid4(), requestId
+      };
+      const replyEntry = {
+        kind: "send-message", id: "gb" + now.toString(36),
+        message: JSON.stringify({ type: "text", content: "" }),
+        timestampMs: now + 1, requestId, isStreaming: true
+      };
+      const persistence = window.desktop.agent.clientPersistence;
+      async function commit(extra) {
+        const entries = store.replica.value.entries.concat(extra || []);
+        const latest = entries[entries.length - 1];
+        if (latest && latest.id === replyEntry.id) {
+          latest.message = replyEntry.message;
+          if (replyEntry.isStreaming === false) latest.isStreaming = false;
+        }
+        if (extra) store.replica.value.entries = entries;
+        await persistence.write(store.key, JSON.stringify(store.replica));
+      }
+      async function uncommit() {
+        try {
+          store.replica.value.entries = store.replica.value.entries.filter(
+            e => e.id !== userEntry.id && e.id !== replyEntry.id);
+          await persistence.write(store.key, JSON.stringify(store.replica));
+        } catch (err) {}
+      }
+      await commit([userEntry, replyEntry]);
+
+      const hist = [];
+      for (const e of store.replica.value.entries.slice(-14)) {
+        if (e.kind === "message" && e.role === "user" && typeof e.content === "string" && e.content) {
+          hist.push({ role: "user", content: e.content.slice(0, 4000) });
+        } else if (e.kind === "send-message") {
+          try {
+            const m = typeof e.message === "string" ? JSON.parse(e.message) : e.message;
+            if (m && m.type === "text" && m.content) hist.push({ role: "assistant", content: String(m.content).slice(0, 4000) });
+          } catch (err) {}
+        }
+      }
+      const eff = effortOf(bound);
+      const res = await fetch(String(bound.hopBaseUrl).replace(/\/$/, "") + "/chat/completions", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.assign({
+          model: bound.modelId,
+          messages: hist,
+          stream: true
+        }, effortBody(bound.provider, eff)))
+      });
+      if (!res.ok || !res.body) { await uncommit(); return false; }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let acc = "", buf = "", lastWrite = 0;
+      let completionTokens = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split("\n");
+        buf = parts.pop();
+        for (const ln of parts) {
+          const line = ln.trim();
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const j = JSON.parse(payload);
+            const delta = (((j.choices || [])[0] || {}).delta || {}).content || "";
+            if (delta) {
+              if (!firstTokenAt) firstTokenAt = Date.now();
+              acc += delta;
+              completionTokens++;
+            }
+          } catch (err) {}
+        }
+        if (Date.now() - lastWrite > 120 && acc) {
+          lastWrite = Date.now();
+          replyEntry.message = JSON.stringify({ type: "text", content: acc });
+          replyEntry.timestampMs = Date.now();
+          await commit();
+        }
+      }
+      replyEntry.message = JSON.stringify({ type: "text", content: acc });
+      replyEntry.isStreaming = false;
+      replyEntry.timestampMs = Date.now();
+      await commit();
+      const elapsed = Date.now() - started;
+      const tps = elapsed > 0 ? (completionTokens / (elapsed / 1000)) : 0;
+      GLASS_ROUTED.add(aid + ":" + requestId);
+      try {
+        await fetch(RELAY + "/append-metrics", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agentId: aid, agentName: bound.name || "Bot", modelId: bound.modelId,
+            hopRoute: String(bound.hopBaseUrl || "").replace(/^https?:\/\//, ""),
+            isVerifiedHop: true, source: "glass-turn",
+            tokensPerSec: Math.round(tps * 10) / 10,
+            ttftMs: firstTokenAt ? firstTokenAt - started : null,
+            promptTokens: null, completionTokens,
+            contextLimit: null, nativeEntryId: replyEntry.id, requestId
+          })
+        });
+      } catch (err) {}
+      render(true);
+      return true;
+    } catch (e) {
+      try { await uncommit(); } catch (err) {}
+      return false;
+    }
+  }
+
+  function clearComposer(field) {
+    try {
+      field.focus();
+      document.execCommand("selectAll", false, null);
+      document.execCommand("delete", false, null);
+      field.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    } catch (e) {}
+  }
+
+  document.addEventListener("keydown", (e) => {
+    try {
+      if (!glassInterceptArmed) return;
+      if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.defaultPrevented) return;
+      // Gate on the LIVE composer state, not the event target: real key events can
+      // target text nodes, widget spans, or (synthetic input) BODY. Never touch
+      // HUD-internal typing or dialog-scoped Enter.
+      const _et = (e.target && e.target.nodeType === 3) ? e.target.parentElement : e.target;
+      if (_et && _et.closest && (_et.closest("#gb-liquidglass-root") || _et.closest('[role="dialog"],[role="alertdialog"]'))) return;
+      const field = document.querySelector(".sand-prompt-field");
+      if (!field || field.offsetParent === null) return;
+      const text = (field.innerText || "").trim();
+      if (!text) return;
+      const aid = resolveActiveAgentId();
+      const bound = (aid && bindings[aid]) || null;
+      if (!bound || !bound.modelId || !bound.hopBaseUrl) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      clearComposer(field);
+      glassRoutedTurn(text).then((ok) => {
+        if (ok) return;
+        try {
+          field.focus();
+          document.execCommand("insertText", false, text);
+          glassInterceptArmed = false;
+          field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        } finally {
+          setTimeout(() => { glassInterceptArmed = true; }, 1000);
+        }
+      });
+    } catch (err) {}
+  }, true);
+
   // --- LANDED WORK visibility: who is actually doing the work (plan-hop usage) ---
   async function refreshUsage() {
     try {
