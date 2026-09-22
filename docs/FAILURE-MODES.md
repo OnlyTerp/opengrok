@@ -106,6 +106,18 @@ Legend: SYMPTOM (what you see) → CAUSE (what's actually wrong) → LOCK (the f
 - **CAUSE:** exclusive locks on credential databases.
 - **LOCK:** dedicated profiles/dir copies for automation; never fight the user's live session.
 
+## F. Vendor bundle integrity
+
+### F19 — Repacked asar dies at boot ("Integrity check failed")
+- **SYMPTOM:** `FATAL: asar_util.cc:143] Integrity check failed for asar archive (X vs Y)` — instant boot death after any app.asar modification; stock asar boots fine.
+- **CAUSE:** two independent traps: (1) Electron's embedded-asar-integrity fuse — the exe carries `[{"file":"resources\\app.asar","alg":"SHA256","value":…}]` and boot requires `value == sha256(asar JSON header bytes)` (NOT the whole file); (2) naive extract+repack drops `unpacked: true` flags, inlining native `.node`/`.exe` files that can only load from `app.asar.unpacked/`.
+- **LOCK:** preserve the unpack set (derive it from the install's `app.asar.unpacked/` at apply time), then sync the exe's embedded value to the new header hash (same-length hex swap, keep a pre-patch exe backup). Fail loud if the integrity block is missing/ambiguous or the unpack set can't be expressed. `tools/glass-inject.py` implements both gates.
+
+### F20 — Update silently deletes the injection seam
+- **SYMPTOM:** patcher's anchor count drops to 0 after a platform update; the routed lane falls back to the stock model with no error.
+- **CAUSE:** the vendor restructured/minified the session factory (e.g. `new e("openai_session"` disappeared entirely along with the whole custom-session path).
+- **LOCK:** the patcher's unknown-SHA + anchor-count refusal is sacred — never allowlist a SHA whose required anchors are absent. Re-map the seam on the pulled bundle first (unique count==1 anchor, preserved option surface), revise the patch contract with behavioral red/restore/green on a mock upstream, then patch. Blind "update the allowlist" is how you silently ship a no-op.
+
 ---
 
 *Additions welcome — include reproduction steps and the lock that worked.*

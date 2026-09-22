@@ -1,3 +1,4 @@
+/*BOOST-LG-A 2026-09-05*/
 /*GROKBOT_LIQUIDGLASS_IN_APP_INJECTED*/
 (function () {
   if (typeof window !== "undefined" && window.__grokbotLiquidGlassInjected) return;
@@ -8,6 +9,7 @@
   let showRoster = false;
   let showDiag = false;
   let showModelDropdown = false;
+  let showModelAddForm = false;
   let modelSearchFilter = "";
   let lastRenderedState = null;
   let dragData = { isDragging: false, hasDragged: false, startX: 0, startY: 0, initialLeft: 0, initialTop: 0 };
@@ -34,27 +36,16 @@
     }
 };
 
-  let currentActiveAgentId = (typeof window !== "undefined" && window.__grokbotActiveAgentId) || Object.keys(STATIC_BINDINGS)[0] || null;
+  let currentActiveAgentId = (typeof window !== "undefined" && window.__grokbotActiveAgentId) || null;
   if (typeof window !== "undefined" && currentActiveAgentId) {
     window.__grokbotActiveAgentId = currentActiveAgentId;
   }
 
   let bindings = Object.assign({}, STATIC_BINDINGS);
   let metricsByAgent = {};
-  let globalLatestMetrics = {
-    modelId: "grok-4.6",
-    agentName: "Demo Bot",
-    agentId: Object.keys(STATIC_BINDINGS)[0] || "",
-    hopRoute: "127.0.0.1:18779",
-    isVerifiedHop: true,
-    tokensPerSec: 0.0,
-    ttftMs: 0,
-    promptTokens: 0,
-    completionTokens: 0,
-    cacheHitPct: 0.0,
-    contextLimit: 2097152,
-    contextUtilizationPct: 0.0
-  };
+  const nativeRepliesByAgent = {};
+  const persistedNativeReplies = new Set();
+  let nativeReplicaPrefix = null;
 
   const MODEL_CONTEXT_LIMITS = {
     "grok-4.6": 2097152,
@@ -75,12 +66,63 @@
     "gpt-5.6-luna-max": 1048576,
     "zai-org/GLM-5.3-Flash": 1048576,
     "cerebras/llama-3.3-70b": 131072,
-    "cerebras-llama-3.1-8b": 131072
+    "cerebras-llama-3.1-8b": 131072,
+    "cerebras-qwen-3.8-27b": 131072,
+    "claude-fable-5-1": 1000000,
+    "gpt-6-astra-fast": 872000,
+    "glm-5.3-flash:fast": 1048576
   };
+
+  // --- UPSTREAM CATALOG: live /v1/models merge into the picker (per-hop cache) ---
+  const upstreamCatalogByHop = {};
+  function hopOfBinding(hopRoute) {
+    if (!hopRoute || typeof hopRoute !== "string") return null;
+    try {
+      const u = new URL(hopRoute);
+      return u.origin;
+    } catch (e) { return null; }
+  }
+  async function refreshUpstreamModels(hopUrl) {
+    try {
+      if (!hopUrl || typeof hopUrl !== "string") return;
+      const base = hopOfBinding(hopUrl);
+      if (!base) return;
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 2500);
+      const res = await fetch(base + "/v1/models", { signal: ctl.signal, cache: "no-store" });
+      clearTimeout(t);
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = Array.isArray(data && data.data) ? data.data : (Array.isArray(data && data.models) ? data.models : []);
+      const rows = items.map(m => {
+        const id = (m && (m.id || m.model || m.name)) || null;
+        if (!id || typeof id !== "string") return null;
+        // Strip suffix tokens (colon/at scopes, numeric suffixes) for a clean human label; never show raw key material
+        const labelParts = id.split(/[:@]/).filter(Boolean);
+        const label = labelParts[0] || id;
+        const owner = (m && (m.owned_by || m.owner || m.provider || m.organization)) || "";
+        const prov = typeof owner === "string" && owner.trim() ? owner.trim().toLowerCase() : "custom";
+        return {
+          label: "↻ " + label,
+          id: id,
+          hop: hopUrl,
+          prov: prov,
+          desc: "live from " + base + "/v1/models",
+          badge: "↻ LIVE"
+        };
+      }).filter(Boolean);
+      upstreamCatalogByHop[base] = rows;
+      // Rows landed after the dropdown was already rendered with static rows → re-render once so they appear
+      if (showModelDropdown && !showModelAddForm && typeof render === "function") {
+        try { render(true); } catch (e) {}
+      }
+    } catch (e) {}
+  }
 
   const MODEL_CATALOG = [
     { label: "Cerebras Ultra-Speed (Llama 3.3 70B)", desc: "~1,800 tok/s Ultra-Low Latency", id: "cerebras/llama-3.3-70b", hop: "http://127.0.0.1:18786/v1", prov: "cerebras", badge: "🚀 ULTRA" },
     { label: "Cerebras Ultra-Speed (Llama 3.1 8B)", desc: "~2,200 tok/s Instant Reflex", id: "cerebras-llama-3.1-8b", hop: "http://127.0.0.1:18786/v1", prov: "cerebras", badge: "🚀 ULTRA" },
+    { label: "Cerebras Ultra-Speed (Qwen 3.8 27B)", desc: "~1,500 tok/s Ultra-Low Latency", id: "cerebras-qwen-3.8-27b", hop: "http://127.0.0.1:18786/v1", prov: "cerebras", badge: "🚀 ULTRA" },
     { label: "Claude Opus 5 (OAuth Plan 1)", desc: "High-Reasoning Anthropic Engine", id: "claude-opus-5-oauth-1", hop: "http://127.0.0.1:18786/v1", prov: "claude", badge: "⚡ PLAN 1" },
     { label: "Claude Fable 5 (OAuth Plan 1)", desc: "Coding & Agent Synthesis", id: "claude-fable-5-oauth-1", hop: "http://127.0.0.1:18786/v1", prov: "claude", badge: "⚡ PLAN 1" },
     { label: "Claude Opus 5 (OAuth Plan 3)", desc: "Heavy Deep Thinking", id: "claude-opus-5-oauth-3", hop: "http://127.0.0.1:18786/v1", prov: "claude", badge: "⚡ PLAN 3" },
@@ -93,7 +135,10 @@
     { label: "Local Qwen 3.8 27B", desc: "Dedicated Local On-Box Model", id: "local-qwen38-27b", hop: "http://127.0.0.1:18786/v1", prov: "qwen", badge: "🌐 LOCAL" },
     { label: "Gemini 3.7 Flash Thinking", desc: "Google Deep Reasoning", id: "gemini-3.7-flash", hop: "http://127.0.0.1:18786/v1", prov: "gemini", badge: "💎 GEMINI" },
     { label: "Grok 4.6 (Stock xAI)", desc: "Default Cursor xAI Direct", id: "grok-4.6", hop: "http://127.0.0.1:18779/v1", prov: "xai", badge: "🪐 GROK" },
-    { label: "Grok 4.6 Superheavy", desc: "Superheavy Extended Context", id: "grok-4.6-superheavy", hop: "http://127.0.0.1:18786/v1", prov: "xai", badge: "🪐 HEAVY" }
+    { label: "Grok 4.6 Superheavy", desc: "Superheavy Extended Context", id: "grok-4.6-superheavy", hop: "http://127.0.0.1:18786/v1", prov: "xai", badge: "🪐 HEAVY" },
+    { label: "Claude Fable 5.1 (OAuth Plan)", desc: "1M-context Fable 5.1 · adaptive thinking", id: "claude-fable-5-1", hop: "http://127.0.0.1:18776/v1", prov: "claude", badge: "⚡ 5.1" },
+    { label: "GPT-6 Astra Fast (Codex)", desc: "272k/872k Astra · fast effort via codex shim", id: "gpt-6-astra-fast", hop: "http://127.0.0.1:18777/v1", prov: "openai", badge: "🪐 FAST" },
+    { label: "GLM 5.3 Flash (Inco fast)", desc: "inco :fast lane", id: "glm-5.3-flash:fast", hop: "http://127.0.0.1:18800/v1", prov: "inco", badge: "🔮 INCO" }
   ];
 
   // --- SAFE STORAGE HELPERS ---
@@ -225,6 +270,10 @@
       color: #f8fafc;
       font-size: 11px;
       position: relative;
+      max-height: calc(100vh - 90px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .gb-card-header {
       display: flex;
@@ -319,6 +368,8 @@
       border-color: rgba(56, 189, 248, 0.85);
     }
     .gb-custom-menu {
+      flex: 1 1 auto;
+      min-height: 0;
       position: absolute;
       top: 92px;
       left: 12px;
@@ -449,6 +500,7 @@
       transition: width 0.3s ease;
     }
     .gb-actions {
+      flex: 0 0 auto;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -471,6 +523,13 @@
     .gb-btn:hover {
       background: rgba(56, 189, 248, 0.25);
     }
+    .gb-roster-item:hover {
+      background: rgba(56, 189, 248, 0.18);
+    }
+    .gb-roster-item.active {
+      background: rgba(56, 189, 248, 0.3);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+    }
     .gb-drawer {
       background: rgba(15, 23, 42, 0.95);
       border: 1px solid rgba(255, 255, 255, 0.12);
@@ -478,7 +537,7 @@
       padding: 8px;
       margin-bottom: 10px;
       font-size: 9px;
-      max-height: 150px;
+      max-height: 190px;
       overflow-y: auto;
       -webkit-app-region: no-drag !important;
     }
@@ -492,19 +551,6 @@
       cursor: pointer;
       -webkit-app-region: no-drag !important;
     }
-    .gb-roster-item:hover {
-      background: rgba(56, 189, 248, 0.18);
-    }
-    .gb-roster-item.active {
-      background: rgba(56, 189, 248, 0.3);
-      border: 1px solid rgba(56, 189, 248, 0.5);
-    }
-    .gb-diag-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
     .gb-diag-log {
       font-family: monospace;
       font-size: 8px;
@@ -512,6 +558,68 @@
       white-space: pre-wrap;
       word-break: break-all;
       margin-top: 4px;
+    }
+    .gb-add-form {
+      padding: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .gb-add-form input {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      color: #f8fafc;
+      padding: 6px 10px;
+      font-size: 10.5px;
+      outline: none;
+      -webkit-app-region: no-drag !important;
+    }
+    .gb-add-form input:focus {
+      border-color: #38bdf8;
+    }
+    .gb-add-form .gb-add-hint {
+      font-size: 8.5px;
+      color: #64748b;
+      word-break: break-all;
+    }
+    .gb-add-form .gb-add-bind {
+      background: rgba(52, 211, 153, 0.2);
+      border: 1px solid rgba(52, 211, 153, 0.5);
+      color: #34d399;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-app-region: no-drag !important;
+    }
+    .gb-add-form .gb-add-bind:hover {
+      background: rgba(52, 211, 153, 0.35);
+    }
+    .gb-toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(11, 15, 25, 0.95);
+      border: 1px solid rgba(52, 211, 153, 0.55);
+      color: #34d399;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 8px 18px;
+      border-radius: 9999px;
+      z-index: 999999999;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      pointer-events: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+    .gb-toast.gb-toast-show {
+      opacity: 1;
     }
   `;
   const rootEl = document.createElement("div");
@@ -594,142 +702,93 @@
   }
 
   function resolveActiveAgentId() {
-    if (typeof window !== "undefined" && window.__grokbotActiveAgentId && bindings[window.__grokbotActiveAgentId]) {
-      return window.__grokbotActiveAgentId;
+    const selected = document.querySelector('[data-agent-id][data-active="true"], [data-agent-id][aria-current="page"], [data-agent-id][aria-selected="true"]');
+    const domAid = selected?.dataset?.agentId || null;
+    // A roster/user-pin switch is authoritative for a grace window: the app's DOM
+    // attributes can lag (or be re-derived from another list) and would otherwise
+    // drag the HUD back mid-poll. Track a latched selection with a wall clock.
+    if (currentActiveAgentId === domAid) {
+      window.__gbActiveLatchUntil = 0;
+    } else if (!window.__gbActiveLatchUntil || Date.now() > window.__gbActiveLatchUntil) {
+      window.__gbActiveLatchUntil = 0;
     }
-    if (currentActiveAgentId && bindings[currentActiveAgentId]) {
-      return currentActiveAgentId;
+    if (window.__gbActiveLatchUntil && Date.now() < window.__gbActiveLatchUntil) {
+      return currentActiveAgentId || domAid;
     }
-
-    const activeBtn = document.querySelector('button[data-agent-id][data-active="true"], button[data-agent-id][aria-pressed="true"], button[data-agent-id][aria-current="page"], [data-agent-id][aria-selected="true"], [data-agent-id][data-selected="true"]');
-    if (activeBtn && activeBtn.dataset && activeBtn.dataset.agentId) {
-      return activeBtn.dataset.agentId;
-    }
-
-    const sel = document.querySelector('[data-agent-id].active, [data-agent-id][aria-selected="true"]');
-    if (sel && sel.dataset && sel.dataset.agentId) {
-      return sel.dataset.agentId;
-    }
-
-    // Fiber tree discovery on #root
-    try {
-      const root = document.getElementById("root");
-      if (root) {
-        let fiberKey = null;
-        for (const k in root) {
-          if (k.startsWith("__reactContainer$") || k.startsWith("__reactFiber$")) {
-            fiberKey = k;
-            break;
-          }
-        }
-        if (fiberKey) {
-          const visited = new Set();
-          function searchFiber(node, depth) {
-            if (!node || depth > 30 || visited.has(node)) return null;
-            visited.add(node);
-            if (node.memoizedProps) {
-              if (node.memoizedProps.client) {
-                hookClientStore(node.memoizedProps.client);
-              }
-              if (node.memoizedProps.agentId && bindings[node.memoizedProps.agentId]) {
-                return node.memoizedProps.agentId;
-              }
-            }
-            if (node.child) {
-              const res = searchFiber(node.child, depth + 1);
-              if (res) return res;
-            }
-            if (node.sibling) {
-              const res = searchFiber(node.sibling, depth + 1);
-              if (res) return res;
-            }
-            return null;
-          }
-          const fiberRoot = root[fiberKey]?.current || root[fiberKey];
-          const foundAid = searchFiber(fiberRoot, 0);
-          if (foundAid) return foundAid;
-        }
-      }
-    } catch (e) {}
-
-    const headers = document.querySelectorAll('header, [role="banner"], h1, h2, [data-testid*="header"], [data-testid*="agent"]');
-    for (const h of headers) {
-      const t = (h.innerText || "").trim();
-      for (const aid in bindings) {
-        const name = bindings[aid].name;
-        if (name && t.includes(name)) {
-          return aid;
-        }
-      }
-    }
-
-    return currentActiveAgentId || Object.keys(bindings)[0] || null;
+    return domAid || currentActiveAgentId || null;
   }
 
-  function setActiveAgent(aid) {
+  function latchActiveSelection(ms) {
+    try { window.__gbActiveLatchUntil = Date.now() + (ms || 1500); } catch (e) {}
+  }
+  function setActiveAgent(aid, opts) {
     if (!aid || typeof aid !== "string" || !aid.trim()) return;
     const trimmed = aid.trim();
     currentActiveAgentId = trimmed;
+    // Explicit switches (roster click / API / capture-phase user click) hold the
+    // selection for a short grace window so lagging DOM attributes can't re-pin
+    // an old agent mid-poll.
+    if (!opts || opts.latch !== false) latchActiveSelection(2500);
     if (typeof window !== "undefined") window.__grokbotActiveAgentId = trimmed;
     showModelDropdown = false;
     render(true);
   }
 
-  function getDisplayMetrics(specifiedAid) {
-    let aid = null;
-    const isExplicit = (specifiedAid && typeof specifiedAid === "string");
-    if (isExplicit) {
-      aid = specifiedAid;
-    } else {
-      aid = resolveActiveAgentId();
-    }
-    if (aid && bindings[aid]) {
-      const bound = bindings[aid];
-      const botMetrics = metricsByAgent[aid] || {};
-      const hop = bound.hopBaseUrl || botMetrics.hopRoute || "";
-      const isHop = !!(hop && (hop.includes("127.0.0.1") || hop.includes("18786") || hop.includes("18779") || hop.includes("18776")));
-      const limit = botMetrics.contextLimit || MODEL_CONTEXT_LIMITS[bound.modelId] || 131072;
 
-      return {
-        agentId: aid,
-        agentName: bound.name || "Bot",
-        modelId: bound.modelId || botMetrics.modelId || "grok-4.6",
-        hopRoute: hop.replace(/^https?:\/\//, "") || "127.0.0.1:18786",
-        isVerifiedHop: isHop,
-        tokensPerSec: botMetrics.tokensPerSec != null ? botMetrics.tokensPerSec : 0.0,
-        ttftMs: botMetrics.ttftMs != null ? botMetrics.ttftMs : 0,
-        promptTokens: botMetrics.promptTokens != null ? botMetrics.promptTokens : 0,
-        completionTokens: botMetrics.completionTokens != null ? botMetrics.completionTokens : 0,
-        cacheHitPct: botMetrics.cacheHitPct != null ? botMetrics.cacheHitPct : 0.0,
-        contextLimit: limit,
-        contextUtilizationPct: botMetrics.contextUtilizationPct != null ? botMetrics.contextUtilizationPct : 0.0,
-        hasTurn: botMetrics.tokensPerSec != null
-      };
-    }
-    if (isExplicit || (aid && !bindings[aid])) {
-      return {
-        agentId: aid || "",
-        agentName: "Bot",
-        modelId: "grok-4.6",
-        hopRoute: "127.0.0.1:18786",
-        isVerifiedHop: false,
-        tokensPerSec: 0.0,
-        ttftMs: 0,
-        promptTokens: 0,
-        completionTokens: 0,
-        cacheHitPct: 0.0,
-        contextLimit: 131072,
-        contextUtilizationPct: 0.0,
-        hasTurn: false
-      };
-    }
-    return globalLatestMetrics;
+  function showGbToast(text) {
+    try {
+      if (typeof document === "undefined" || !rootEl || !rootEl.parentNode) return;
+      let toast = document.getElementById("gb-toast");
+      if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "gb-toast";
+        toast.className = "gb-toast";
+        rootEl.appendChild(toast);
+      }
+      toast.textContent = text;
+      toast.classList.add("gb-toast-show");
+      clearTimeout(showGbToast.__t1);
+      clearTimeout(showGbToast.__t2);
+      showGbToast.__t1 = setTimeout(() => toast.classList.remove("gb-toast-show"), 1300);
+      showGbToast.__t2 = setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 1600);
+    } catch (e) {}
+  }
+
+  function getDisplayMetrics(specifiedAid) {
+    const aid = typeof specifiedAid === "string" && specifiedAid ? specifiedAid : resolveActiveAgentId();
+    const bound = bindings[aid] || {};
+    const native = nativeRepliesByAgent[aid];
+    const provider = metricsByAgent[aid];
+    const providerIsCurrent = provider && (!native || Date.parse(provider.timestamp) >= Date.parse(native.timestamp));
+    const metrics = providerIsCurrent ? provider : (native || {});
+    const selected = document.querySelector('[data-agent-id][data-active="true"], [data-agent-id][aria-current="page"]');
+    const name = selected?.dataset?.agentId === aid ? selected.getAttribute("aria-label") : null;
+    const limit = metrics.contextLimit || (providerIsCurrent ? MODEL_CONTEXT_LIMITS[bound.modelId] : null) || null;
+    return {
+      agentId: aid,
+      agentName: name || bound.name || "Bot",
+      modelId: bound.modelId || metrics.modelId || null,
+      hopRoute: metrics.source === "app-native-transcript" ? "app-native-transcript" : (bound.hopBaseUrl || metrics.hopRoute || null),
+      isVerifiedHop: !!(providerIsCurrent && provider.isVerifiedHop),
+      tokensPerSec: metrics.tokensPerSec ?? null,
+      ttftMs: metrics.ttftMs ?? null,
+      promptTokens: metrics.promptTokens ?? null,
+      completionTokens: metrics.completionTokens ?? null,
+      cacheHitPct: metrics.cacheHitPct ?? null,
+      contextLimit: limit,
+      contextUtilizationPct: metrics.contextUtilizationPct ?? (metrics.promptTokens != null && limit ? metrics.promptTokens / limit * 100 : null),
+      hasTurn: !!(native || provider?.hasTurn || provider?.completionTokens),
+      source: metrics.source || (providerIsCurrent ? "provider" : null),
+      nativeResponseMs: native?.nativeResponseMs ?? null,
+      nativeEntryId: native?.entryId ?? null,
+      requestId: metrics.requestId || null
+    };
   }
 
 
   // --- LIVE diag probes (real TCP/HTTP health, no hardcoded CONNECTED) ---
   async function probeDiag() {
-    const ports = ["8799", "18786", "18779", "18776", "18778"];
+    const ports = ["8799", "18786", "18779", "18776", "18778", "18777", "18800"];
     for (const port of ports) {
       const el = document.getElementById("gb-diag-" + port);
       if (!el) continue;
@@ -754,13 +813,13 @@
     }
   }
 
-  async function updateActiveModel(newModelId, newHopUrl, provider) {
+  async function updateActiveModel(newModelId, newHopUrl, provider, displayName) {
     const aid = resolveActiveAgentId();
     if (!aid) return;
-    const name = (bindings[aid] && bindings[aid].name) || "Bot";
+    const name = displayName || (bindings[aid] && bindings[aid].name) || "Bot";
     
     if (!bindings[aid]) bindings[aid] = {};
-    bindings[aid].modelId = newModelId;
+    if (displayName) bindings[aid].name = displayName;
     if (newHopUrl) bindings[aid].hopBaseUrl = newHopUrl;
     if (provider) bindings[aid].provider = provider;
     showModelDropdown = false;
@@ -792,11 +851,11 @@
     const cacheHit = cur.cacheHitPct != null ? cur.cacheHitPct : 0.0;
     const limit = Math.round((cur.contextLimit || 131072) / 1024);
 
-    const speed = cur.hasTurn ? `${tps.toFixed(1)} t/s` : "Ready (Awaiting turn)";
-    const speedShort = cur.hasTurn ? `${tps.toFixed(0)} t/s` : "Ready";
-    const ttft = cur.hasTurn ? `${ttftMs} ms` : "0 ms";
-    const ctx = ctxPct.toFixed(1);
-    const ctxShort = ctxPct.toFixed(0);
+    const speed = cur.tokensPerSec != null ? `${tps.toFixed(1)} t/s` : (cur.hasTurn ? "Native reply; token rate unavailable" : "Awaiting metrics");
+    const speedShort = cur.tokensPerSec != null ? `${tps.toFixed(0)} t/s` : (cur.hasTurn ? "Native reply" : "Awaiting metrics");
+    const ttft = cur.ttftMs != null ? `${ttftMs} ms` : "Unavailable";
+    const ctx = cur.contextUtilizationPct != null ? ctxPct.toFixed(1) : "—";
+    const ctxShort = cur.contextUtilizationPct != null ? ctxPct.toFixed(0) : "—";
 
     if (!isExpanded) {
       const spEl = document.getElementById("gb-pill-speed");
@@ -812,13 +871,13 @@
       const vTtft = document.getElementById("gb-val-ttft");
       if (vTtft) vTtft.textContent = ttft;
       const vTok = document.getElementById("gb-val-tokens");
-      if (vTok) vTok.textContent = `${cur.promptTokens || 0} / ${cur.completionTokens || 0}`;
+      if (vTok) vTok.textContent = `${cur.promptTokens ?? "—"} / ${cur.completionTokens ?? "—"}`;
       const vCache = document.getElementById("gb-val-cache");
-      if (vCache) vCache.textContent = `${cacheHit.toFixed(1)}%`;
+      if (vCache) vCache.textContent = cur.cacheHitPct != null ? `${cacheHit.toFixed(1)}%` : "Unavailable";
       const gBar = document.getElementById("gb-gauge-bar");
       if (gBar) gBar.style.width = `${Math.min(100, Math.max(2, ctxPct))}%`;
       const gHdr = document.getElementById("gb-gauge-text");
-      if (gHdr) gHdr.textContent = `${ctx}% of ${limit}k`;
+      if (gHdr) gHdr.textContent = cur.contextLimit != null ? `${ctx}% of ${limit}k` : "Context unavailable";
     }
   }
 
@@ -841,20 +900,19 @@
     if (!isExpanded) {
       const isHop = cur.isVerifiedHop;
       const dotCls = isHop ? "verified" : "fallback";
-      const speedShort = cur.hasTurn ? `${tps.toFixed(0)} t/s` : "Ready";
-      const ctxShort = ctxPct.toFixed(0);
+      const speedShort = cur.tokensPerSec != null ? `${tps.toFixed(0)} t/s` : (cur.hasTurn ? "Native reply" : "Awaiting metrics");
+      const ctxShort = cur.contextUtilizationPct != null ? ctxPct.toFixed(0) : "—";
       const ag = cur.agentName || "Bot";
-      let m = cur.modelId || "grok-4.6";
+      let m = cur.modelId || (cur.hasTurn ? "app-native" : "unbound");
+      const ctxNum = cur.contextUtilizationPct != null ? ctxPct : 0.0;
       if (m.length > 14) m = m.slice(0, 12) + "…";
-
       rootEl.innerHTML = `
         <div class="gb-glass-pill" id="gb-pill-btn" title="Active Convo: ${ag} · Model: ${cur.modelId} (Click to expand · Drag to move · Double-click to reset position)">
           <span class="gb-dot ${dotCls}"></span>
           <span><b>${ag}</b>: ${m}</span>
           <span style="color:#64748b">·</span>
           <span style="color:#38bdf8" id="gb-pill-speed">⚡${speedShort}</span>
-          <span style="color:#64748b">·</span>
-          <span style="color:${ctxShort > 75 ? "#f43f5e" : (ctxShort > 50 ? "#fbbf24" : "#34d399")}" id="gb-pill-ctx">${ctxShort}%</span>
+          <span style="color:${ctxNum > 75 ? "#f43f5e" : (ctxNum > 50 ? "#fbbf24" : "#34d399")}" id="gb-pill-ctx">${ctxShort}%</span>
           <span style="color:#38bdf8; margin-left:2px">✦</span>
         </div>
       `;
@@ -865,6 +923,7 @@
           if (dragData.tapCandidate !== false) {
             isExpanded = true;
             render(true);
+            applyPosition();
           }
         });
         pillBtn.addEventListener("dblclick", function (e) {
@@ -874,14 +933,15 @@
       }
     } else {
       const isHop = cur.isVerifiedHop;
-      const provText = isHop ? "🟢 VERIFIED HOP" : "⚠️ STOCK FALLBACK";
-      const provCls = isHop ? "verified" : "fallback";
-      const speed = cur.hasTurn ? `${tps.toFixed(1)} t/s` : "Ready (Awaiting turn)";
-      const ttft = cur.hasTurn ? `${ttftMs} ms` : "0 ms";
-      const pin = cur.promptTokens || 0;
-      const pout = cur.completionTokens || 0;
-      const cache = cacheHit.toFixed(1);
-      const ctx = ctxPct.toFixed(1);
+      const isNative = cur.source === "app-native-transcript";
+      const provText = isNative ? "NATIVE" : (isHop ? "VERIFIED HOP" : "UNVERIFIED ROUTE");
+      const provCls = (isHop || isNative) ? "verified" : "fallback";
+      const speed = cur.tokensPerSec != null ? `${tps.toFixed(1)} t/s` : (cur.hasTurn ? "Native reply; token rate unavailable" : "Awaiting metrics");
+      const ttft = cur.ttftMs != null ? `${ttftMs} ms` : "Unavailable";
+      const pin = cur.promptTokens ?? "—";
+      const pout = cur.completionTokens ?? "—";
+      const cache = cur.cacheHitPct != null ? cacheHit.toFixed(1) : "—";
+      const ctx = cur.contextUtilizationPct != null ? ctxPct.toFixed(1) : "—";
 
       let dropdownHtml = "";
       if (showModelDropdown) {
@@ -899,11 +959,34 @@
             </div>
           `;
         });
+        const staticIds = new Set(MODEL_CATALOG.map(c => c.id));
+        const upstream = upstreamCatalogByHop[hopOfBinding(cur.hopRoute)] || [];
+        upstream.filter(u => !staticIds.has(u.id) && (u.label.toLowerCase().includes(filter) || u.id.toLowerCase().includes(filter))).forEach(u => {
+          const isActive = (u.id === cur.modelId);
+          optionsList += `
+            <div class="gb-model-option ${isActive ? "active" : ""}" data-model-id="${u.id}" data-hop="${u.hop}" data-prov="${u.prov}">
+              <div class="gb-option-header">
+                <span class="gb-option-title">${u.label}</span>
+                <span class="gb-option-badge">${u.badge}</span>
+              </div>
+              <div class="gb-option-desc">${u.desc}</div>
+            </div>
+          `;
+        });
 
         dropdownHtml = `
           <div class="gb-custom-menu" id="gb-custom-dropdown">
             <input type="text" class="gb-search-input" id="gb-model-search" placeholder="Search model or provider..." value="${modelSearchFilter}" />
             ${optionsList}
+            ${showModelAddForm ? `
+            <div class="gb-add-form" id="gb-add-form">
+              <input type="text" id="gb-add-model-id" placeholder="Model ID (e.g. gpt-6-astra-fast)" value="" />
+              <input type="text" id="gb-add-hop-url" placeholder="Hop URL" value="http://127.0.0.1:18786/v1" />
+              <input type="text" id="gb-add-model-name" placeholder="Name (optional, defaults to Model ID)" value="" />
+              <div class="gb-add-hint" id="gb-add-hint">Enter a hop URL to verify reachability and preview upstream models…</div>
+              <button class="gb-add-bind" id="gb-add-submit">Bind</button>
+            </div>
+            ` : ""}
             <div class="gb-model-option" id="gb-custom-model-opt" style="border-top:1px solid rgba(255,255,255,0.1); margin-top:4px; padding-top:6px">
               <span class="gb-option-title" style="color:#38bdf8">➕ Connect Custom Endpoint / HuggingFace</span>
               <span class="gb-option-desc">Enter any custom model ID and loopback hop route</span>
@@ -941,15 +1024,14 @@
         diagHtml = `
           <div class="gb-drawer" id="gb-diag-drawer">
             <div style="font-weight:700; color:#34d399; margin-bottom:6px">🩺 Live System Diagnostics:</div>
-            <div class="gb-diag-row"><span>Relay Gateway</span><span style="color:#34d399">HTTP 127.0.0.1:8799 · UP</span></div>
-            <div class="gb-diag-row"><span>Multi-Hop Shim</span><span style="color:#34d399">127.0.0.1:18786 · CONNECTED</span></div>
-            <div class="gb-diag-row"><span>Super Heavy Shim</span><span style="color:#34d399">127.0.0.1:18779 · CONNECTED</span></div>
-            <div class="gb-diag-row"><span>Claude Shim</span><span style="color:#34d399">127.0.0.1:18776 · CONNECTED</span></div>
-            <div class="gb-diag-row"><span>Antigravity Shim</span><span style="color:#34d399">127.0.0.1:18778 · CONNECTED</span></div>
-            <div class="gb-diag-log">
-              [Wire] 200 OK · Hop active to ${cur.modelId}
-              [Guardian] Tool output bloat trimmed; recent turns 100% full fidelity
-              [Roster] All bots bound to designated custom endpoints
+            <div class="gb-diag-row"><span>Relay Gateway</span><span id="gb-diag-8799" style="color:#34d399">HTTP 127.0.0.1:8799 · probing…</span></div>
+            <div class="gb-diag-row"><span>Multi-Hop Shim</span><span id="gb-diag-18786" style="color:#34d399">127.0.0.1:18786 · probing…</span></div>
+            <div class="gb-diag-row"><span>Super Heavy Shim</span><span id="gb-diag-18779" style="color:#34d399">127.0.0.1:18779 · probing…</span></div>
+            <div class="gb-diag-row"><span>Claude Shim</span><span id="gb-diag-18776" style="color:#34d399">127.0.0.1:18776 · probing…</span></div>
+            <div class="gb-diag-row"><span>Codex Shim</span><span id="gb-diag-18777" style="color:#34d399">127.0.0.1:18777 · probing…</span></div>
+            <div class="gb-diag-row"><span>Inco Shim</span><span id="gb-diag-18800" style="color:#34d399">127.0.0.1:18800 · probing…</span></div>
+            <div class="gb-diag-log" id="gb-diag-live-log">
+              Probing 6 lanes… live status on each row above.
             </div>
             <button class="gb-btn" id="gb-copy-diag-btn" style="width:100%; margin-top:6px">📋 Copy Diagnostic Bundle</button>
           </div>
@@ -973,13 +1055,13 @@
             </div>
             
             <button class="gb-dropdown-btn" id="gb-model-trigger" title="Click to choose model for ${cur.agentName}">
-              <span>${cur.modelId}</span>
+              <span>${cur.modelId || (cur.hasTurn ? "app-native" : "unbound")}</span>
               <span style="font-size:10px; color:#38bdf8">▾</span>
             </button>
 
             ${dropdownHtml}
 
-            <div class="gb-route-label">Wire: http://${cur.hopRoute} (Protected by Guardian)</div>
+            <div class="gb-route-label">${cur.source === "app-native-transcript" ? `Source: native transcript · Reply latency: ${cur.nativeResponseMs != null ? cur.nativeResponseMs + " ms" : "Unavailable"} (not TTFT)` : `Wire: ${cur.hopRoute || "Unavailable"}`}</div>
           </div>
 
           <div class="gb-grid">
@@ -997,14 +1079,14 @@
             </div>
             <div class="gb-tile">
               <div class="gb-tile-lbl">💎 Prompt Cache</div>
-              <div class="gb-tile-val" style="color:#fbbf24" id="gb-val-cache">${cache}%</div>
+              <div class="gb-tile-val" style="color:#fbbf24" id="gb-val-cache">${cur.cacheHitPct != null ? cache + "%" : "Unavailable"}</div>
             </div>
           </div>
 
           <div class="gb-gauge-box">
             <div class="gb-gauge-hdr">
               <span>🛡️ CONTEXT GUARDIAN</span>
-              <span id="gb-gauge-text">${ctx}% of ${limit}k</span>
+              <span id="gb-gauge-text">${cur.contextUtilizationPct != null && cur.contextLimit != null ? ctx + "% of " + limit + "k" : "Context unavailable"}</span>
             </div>
             <div class="gb-gauge-track">
               <div class="gb-gauge-bar" id="gb-gauge-bar" style="width:${Math.min(100, Math.max(2, ctxPct))}%"></div>
@@ -1118,6 +1200,19 @@
               const enterEvent = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
               input.dispatchEvent(enterEvent);
             }
+            // Second approach for contenteditable composers (tiptap/ProseMirror): focus the
+            // placeholder element and insert the command via execCommand, then send Enter.
+            try {
+              const ce = document.querySelector('[data-placeholder]');
+              if (ce && typeof ce.focus === "function") {
+                ce.focus();
+                if (typeof document.execCommand === "function") {
+                  document.execCommand("insertText", false, "/new");
+                  const enterEvent2 = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
+                  ce.dispatchEvent(enterEvent2);
+                }
+              }
+            } catch (e2) {}
           } catch (e) {}
         });
       }
@@ -1132,6 +1227,17 @@
         });
       }
 
+      // Refresh live upstream models when the dropdown opens (deduped per hop)
+      if (showModelDropdown) {
+        try {
+          const aid = cur.agentId;
+          const hop = (bindings[aid] && bindings[aid].hopBaseUrl) || hopOfBinding(cur.hopRoute) || null;
+          if (hop && refreshUpstreamModels.__lastHop !== hop) {
+            refreshUpstreamModels.__lastHop = hop;
+            refreshUpstreamModels(hop);
+          }
+        } catch (e) {}
+      }
       // Dropdown placement: flip & clamp so the full list is always clickable (9/4 fix)
       if (showModelDropdown) {
         const ddEl = document.getElementById("gb-custom-dropdown");
@@ -1181,14 +1287,50 @@
         if (customOpt) {
           customOpt.addEventListener("click", (e) => {
             if (e.stopPropagation) e.stopPropagation();
-            if (typeof prompt === "function") {
-              const customModel = prompt("Enter Custom Model ID (e.g. cerebras/llama-3.3-70b or claude-opus-5):", cur.modelId);
-              if (customModel && customModel.trim()) {
-                const customHop = prompt("Enter Hop URL:", "http://127.0.0.1:18786/v1");
-                updateActiveModel(customModel.trim(), customHop ? customHop.trim() : "http://127.0.0.1:18786/v1", "custom");
-              }
-            }
+            showModelAddForm = !showModelAddForm;
+            render(true);
           });
+        }
+
+        const addForm = document.getElementById("gb-add-form");
+        if (addForm) {
+          const modelIdInput = document.getElementById("gb-add-model-id");
+          const hopInput = document.getElementById("gb-add-hop-url");
+          const nameInput = document.getElementById("gb-add-model-name");
+          const hintEl = document.getElementById("gb-add-hint");
+          try { if (modelIdInput && !modelIdInput.value) modelIdInput.focus(); } catch (e) {}
+          if (hopInput && hintEl) {
+            hopInput.addEventListener("change", () => {
+              const hopVal = (hopInput.value || "").trim();
+              if (!hopVal) { hintEl.textContent = "Enter a hop URL to verify reachability and preview upstream models…"; return; }
+              hintEl.textContent = "Probing " + hopVal + " …";
+              refreshUpstreamModels(hopVal).then(() => {
+                const rows2 = upstreamCatalogByHop[hopOfBinding(hopVal)] || [];
+                if (rows2.length) {
+                  hintEl.textContent = "Reachable — " + rows2.length + " upstream models; first: " + rows2.slice(0, 3).map(r => r.id || r.label).join(", ");
+                } else {
+                  hintEl.textContent = "No upstream models reachable at " + hopVal;
+                }
+              }).catch(() => {
+                hintEl.textContent = "Hop unreachable: " + hopVal;
+              });
+            });
+          }
+          const submitBtn = document.getElementById("gb-add-submit");
+          if (submitBtn) {
+            submitBtn.addEventListener("click", async (e) => {
+              if (e.stopPropagation) e.stopPropagation();
+              if (!modelIdInput) return;
+              const mid = (modelIdInput.value || "").trim();
+              if (!mid) { if (hintEl) hintEl.textContent = "Model ID is required."; return; }
+              const hopV = (hopInput && hopInput.value || "").trim() || "http://127.0.0.1:18786/v1";
+              const nameV = (nameInput && nameInput.value || "").trim() || mid;
+              showModelAddForm = false;
+              await updateActiveModel(mid, hopV, "custom", nameV);
+              showGbToast("Bound: " + nameV);
+              try { if (searchInput) searchInput.focus(); } catch (e2) {}
+            });
+          }
         }
       }
 
@@ -1197,7 +1339,13 @@
           item.addEventListener("click", () => {
             const aid = item.getAttribute("data-aid");
             if (aid && bindings[aid]) {
-              setActiveAgent(aid);
+              try {
+                setActiveAgent(aid);
+                // Best-effort app-side sync: re-click the app's own agent button when one exists; silently no-op otherwise
+                document.querySelectorAll("button[data-agent-id]").forEach(el => {
+                  if (el.dataset.agentId === aid) el.click();
+                });
+              } catch (syncErr) {}
             }
           });
         });
@@ -1396,6 +1544,45 @@
     window.__grokbotGetSafeMinTop = getSafeMinTop;
   }
 
+  async function captureNativeReply(aid) {
+    const persistence = window.desktop?.agent?.clientPersistence;
+    if (!aid || !persistence) return;
+    if (!nativeReplicaPrefix) {
+      const keys = await persistence.listKeys("");
+      const suffix = ".transcript.replicas." + aid;
+      const key = keys.find(value => value.endsWith(suffix));
+      if (!key) return;
+      nativeReplicaPrefix = key.slice(0, -aid.length);
+    }
+    const raw = await persistence.read(nativeReplicaPrefix + aid);
+    if (typeof raw !== "string") return;
+    const replica = JSON.parse(raw);
+    const entries = replica?.value?.entries;
+    if (!Array.isArray(entries)) return;
+    let reply = null;
+    for (const entry of entries) {
+      if (entry.kind === "send-message" && entry.message?.type === "text" &&
+          typeof entry.id === "string" && typeof entry.requestId === "string" &&
+          Number.isFinite(entry.timestampMs) && (!reply || entry.timestampMs > reply.timestampMs)) reply = entry;
+    }
+    if (!reply) return;
+    const key = aid + ":" + reply.id;
+    if (persistedNativeReplies.has(key)) return;
+    const user = entries.find(entry => entry.kind === "message" && entry.role === "user" && entry.requestId === reply.requestId);
+    const row = {
+      source: "app-native-transcript", agentId: aid, entryId: reply.id, requestId: reply.requestId,
+      timestamp: new Date(reply.timestampMs).toISOString(),
+      nativeResponseMs: Number.isFinite(user?.timestampMs) && user.timestampMs <= reply.timestampMs ? reply.timestampMs - user.timestampMs : null,
+      hasTurn: true, tokensPerSec: null, ttftMs: null, elapsedMs: null,
+      promptTokens: null, completionTokens: null, cacheHitPct: null, contextUtilizationPct: null
+    };
+    nativeRepliesByAgent[aid] = row;
+    const response = await fetch(RELAY + "/append-metrics", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(row)
+    });
+    if (response.ok && (await response.json()).ok === true) persistedNativeReplies.add(key);
+  }
+
   // Polling loop: updates live metrics text ONLY without recreating DOM!
   async function poll() {
     try {
@@ -1405,12 +1592,20 @@
         if (data && data.agents) {
           Object.assign(bindings, data.agents);
         }
+        if (data && typeof data === "object") {
+          for (const k of Object.keys(data).filter(kk => kk !== "agents")) {
+            const v = data[k];
+            if (v && typeof v === "object" && typeof v.modelId === "string") {
+              bindings[k] = Object.assign({}, bindings[k] || {}, v);
+            }
+          }
+        }
       }
     } catch (e) {}
 
     const resolved = resolveActiveAgentId();
     if (resolved && resolved !== currentActiveAgentId) {
-      setActiveAgent(resolved);
+      setActiveAgent(resolved, { latch: false });
     }
 
     try {
@@ -1423,16 +1618,20 @@
           try {
             const row = JSON.parse(line);
             const aid = row.agentId;
-            if (aid) {
+            if (aid && row.source === "app-native-transcript" && row.entryId) {
+              persistedNativeReplies.add(aid + ":" + row.entryId);
+              if (!nativeRepliesByAgent[aid] || Date.parse(row.timestamp) >= Date.parse(nativeRepliesByAgent[aid].timestamp)) nativeRepliesByAgent[aid] = row;
+            } else if (aid && (!metricsByAgent[aid] || Date.parse(row.timestamp) >= Date.parse(metricsByAgent[aid].timestamp))) {
               metricsByAgent[aid] = row;
             }
             const hop = row.hopRoute || "";
-            row.isVerifiedHop = !!(hop && (hop.includes("127.0.0.1") || hop.includes("18786") || hop.includes("18779") || hop.includes("18776")));
-            globalLatestMetrics = row;
+            // Native transcript rows are first-party app data; never punish them to UNVERIFIED ROUTE
+            row.isVerifiedHop = !!(hop && (hop.includes("127.0.0.1") || hop.includes("18786") || hop.includes("18779") || hop.includes("18776"))) || row.source === "app-native-transcript";
           } catch (err) {}
         }
       }
     } catch (e) {}
+    try { await captureNativeReply(resolved); } catch (error) { console.warn("[LiquidGlass] Native reply capture unavailable:", error.message); }
 
     updateLiveMetricValues();
     if (typeof showDiag !== "undefined" && showDiag && rootEl && rootEl.querySelector("#gb-diag-drawer")) {

@@ -70,6 +70,7 @@ machine, and opens the picker. Then:
 
 ```bash
 python tools/doctor.py        # anytime: is everything still healthy?
+python tools/glass-inject.py --check   # is the LiquidGlass HUD in the app?
 python tools/qa.py            # repo self-check: leaks, refs, tests
 ```
 
@@ -123,6 +124,10 @@ Grok Bot updates silently rewrite its bundle. Instead of hoping:
 
 - `doctor.py` **baselines your machine** on setup and watches files, services,
   and caches — after any update it tells you *exactly what moved*
+- `glass-inject.py` **re-injects the LiquidGlass HUD after every Grok Bot
+  update** — anchored on stable names (`index.html`, the CSP directive), never
+  the hashed bundle; fail-loud on layout drift; `--watch --auto-relaunch`
+  self-heals while the app is closed
 - `--quiet` mode stays silent when clean (cron-friendly), complains only on drift
 - maps hot-reload; no restart needed to fix a route
 
