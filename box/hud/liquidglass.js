@@ -120,6 +120,10 @@
   }
 
   const MODEL_CATALOG = [
+    { label: "MiMo V2.6 Pro (Token Plan)", desc: "Xiaomi MiMo token plan · 1M ctx", id: "mimo-v2.6-pro", hop: "http://127.0.0.1:18784/v1", prov: "mimo", badge: "🚀 MIMO" },
+    { label: "MiMo V2.6 Pro UltraSpeed", desc: "PAYG UltraSpeed lane · 1M ctx", id: "mimo-v2.6-pro-ultraspeed", hop: "http://127.0.0.1:18784/v1", prov: "mimo", badge: "🚀 ULTRA" },
+    { label: "Muse Spark 1.3 (Max)", desc: "Meta Muse · max reasoning effort", id: "muse-spark-1.3", hop: "http://127.0.0.1:18784/v1", prov: "muse", badge: "🎭 MUSE" },
+    { label: "DeepSeek V4.1 (Inco fast)", desc: "Inco high-throughput lane", id: "deepseek-v4.1-flash:fast", hop: "http://127.0.0.1:18784/v1", prov: "deepseek", badge: "🧠 DSV4" },
     { label: "Cerebras Ultra-Speed (Llama 3.3 70B)", desc: "~1,800 tok/s Ultra-Low Latency", id: "cerebras/llama-3.3-70b", hop: "http://127.0.0.1:18786/v1", prov: "cerebras", badge: "🚀 ULTRA" },
     { label: "Cerebras Ultra-Speed (Llama 3.1 8B)", desc: "~2,200 tok/s Instant Reflex", id: "cerebras-llama-3.1-8b", hop: "http://127.0.0.1:18786/v1", prov: "cerebras", badge: "🚀 ULTRA" },
     { label: "Cerebras Ultra-Speed (Qwen 3.8 27B)", desc: "~1,500 tok/s Ultra-Low Latency", id: "cerebras-qwen-3.8-27b", hop: "http://127.0.0.1:18786/v1", prov: "cerebras", badge: "🚀 ULTRA" },
