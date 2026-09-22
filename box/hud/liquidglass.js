@@ -1833,7 +1833,9 @@
      } catch (e) {}
    }
    window.__gbDrift = window.__gbDrift || { runs: 0, merged: 0 };
+   const GLASS_ROUTER_ENABLED = false; // KILL-SWITCH 2026-09-22: renderer-side routing disarmed - server truth wins; config-lane rebuild in progress
    async function driftCheck() {
+     if (!GLASS_ROUTER_ENABLED) return;
      try {
        const aid = resolveActiveAgentId();
        const want = aid && routedSidecar[aid];
@@ -1998,6 +2000,7 @@
   }
 
   document.addEventListener("keydown", (e) => {
+     if (!GLASS_ROUTER_ENABLED) return;
     try {
       if (!glassInterceptArmed) return;
       if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.defaultPrevented) return;
