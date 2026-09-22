@@ -350,6 +350,35 @@
       color: #f43f5e;
       border: 1px solid rgba(244, 63, 94, 0.4);
     }
+    .gb-effort-row {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .gb-effort-chip {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      color: #94a3b8;
+      padding: 2px 8px;
+      font-size: 9.5px;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      transition: all 0.15s ease;
+      -webkit-app-region: no-drag !important;
+    }
+    .gb-effort-chip:hover {
+      border-color: rgba(56, 189, 248, 0.6);
+      color: #e2e8f0;
+    }
+    .gb-effort-chip.active {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
     .gb-dropdown-btn {
       width: 100%;
       background: rgba(15, 23, 42, 0.9);
@@ -785,7 +814,9 @@
       source: metrics.source || (providerIsCurrent ? "provider" : null),
       nativeResponseMs: native?.nativeResponseMs ?? null,
       nativeEntryId: native?.entryId ?? null,
-      requestId: metrics.requestId || null
+      requestId: metrics.requestId || null,
+      parameters: bound.parameters || null,
+      effort: effortOf(bound)
     };
   }
 
@@ -817,15 +848,17 @@
     }
   }
 
-  async function updateActiveModel(newModelId, newHopUrl, provider, displayName) {
+  async function updateActiveModel(newModelId, newHopUrl, provider, displayName, parameters) {
     const aid = resolveActiveAgentId();
     if (!aid) return;
     const name = displayName || (bindings[aid] && bindings[aid].name) || "Bot";
-    
+
     if (!bindings[aid]) bindings[aid] = {};
     if (displayName) bindings[aid].name = displayName;
     if (newHopUrl) bindings[aid].hopBaseUrl = newHopUrl;
     if (provider) bindings[aid].provider = provider;
+    const params = parameters || bindings[aid].parameters || null;
+    if (params) bindings[aid].parameters = params;
     showModelDropdown = false;
     render(true);
 
@@ -838,13 +871,30 @@
           name: name,
           modelId: newModelId,
           hopBaseUrl: newHopUrl || "http://127.0.0.1:18786/v1",
-          provider: provider || "custom"
+          provider: provider || "custom",
+          parameters: params
         })
       });
       console.log(`[LiquidGlass] Model successfully bound to ${newModelId} for ${name}`);
     } catch (e) {
       console.warn("[LiquidGlass] Error saving model binding:", e);
     }
+  }
+
+  function effortOf(bound) {
+    try {
+      const p = (bound && bound.parameters) || [];
+      const hit = p.find(x => x && x.id === "effort");
+      return hit ? hit.value : null;
+    } catch (e) { return null; }
+  }
+
+  function setEffort(value) {
+    const aid = resolveActiveAgentId();
+    const bound = (aid && bindings[aid]) || {};
+    const keep = (bound.parameters || []).filter(x => x && x.id !== "effort");
+    updateActiveModel(bound.modelId || null, bound.hopBaseUrl || null, bound.provider || null, null,
+      keep.concat([{ id: "effort", value: value }]));
   }
 
   function updateLiveMetricValues() {
@@ -887,7 +937,7 @@
 
   function render(force = false) {
     const cur = getDisplayMetrics();
-    const stateKey = `${isExpanded}_${cur.agentId}_${cur.modelId}_${showRoster}_${showDiag}_${showModelDropdown}`;
+    const stateKey = `${isExpanded}_${cur.agentId}_${cur.modelId}_${cur.effort || ""}_${showRoster}_${showDiag}_${showModelDropdown}`;
     
     if (!force && lastRenderedState === stateKey) {
       updateLiveMetricValues();
@@ -1063,6 +1113,10 @@
               <span style="font-size:10px; color:#38bdf8">▾</span>
             </button>
 
+            <div class="gb-effort-row" title="Reasoning effort">
+              ${["low", "medium", "high", "xhigh", "max"].map(v => `<span class="gb-effort-chip ${cur.effort === v ? "active" : ""}" data-effort="${v}">${v}</span>`).join("")}
+            </div>
+
             ${dropdownHtml}
 
             <div class="gb-route-label">${cur.source === "app-native-transcript" ? `Source: native transcript · Reply latency: ${cur.nativeResponseMs != null ? cur.nativeResponseMs + " ms" : "Unavailable"} (not TTFT)` : `Wire: ${cur.hopRoute || "Unavailable"}`}</div>
@@ -1135,6 +1189,12 @@
         });
       }
 
+      rootEl.querySelectorAll(".gb-effort-chip").forEach((chip) => {
+        chip.addEventListener("click", (e) => {
+          if (e.stopPropagation) e.stopPropagation();
+          setEffort(chip.getAttribute("data-effort"));
+        });
+      });
       const resetPosBtn = document.getElementById("gb-reset-pos-btn");
       if (resetPosBtn) {
         resetPosBtn.addEventListener("click", (e) => {
