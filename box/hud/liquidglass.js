@@ -1666,6 +1666,12 @@
             }
           }
         }
+       for (const sid of Object.keys(bindings)) {
+         const sb = bindings[sid];
+         if (sb && sb.modelId && sb.hopBaseUrl) seedSidecar(sid);
+       }
+       installReplicaGuard();
+       if ((poll._n = (poll._n || 0) + 1) % 40 === 0) driftCheck();
       }
     } catch (e) {}
 
@@ -1716,6 +1722,22 @@
   // and every error path fall through to the native submit - uncertain means native.
   const GLASS_ROUTED = new Set();
   let glassInterceptArmed = true;
+ let glassLastError = "";
+ function glassToast(msg) {
+ try {
+ let el = document.getElementById("gb-toast");
+ if (!el) {
+ el = document.createElement("div");
+ el.id = "gb-toast";
+ el.style.cssText = "position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.95);border:1px solid rgba(248,113,113,.5);color:#fecaca;font-size:11px;padding:8px 14px;border-radius:10px;z-index:99999999;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:70vw;text-align:center;-webkit-app-region:no-drag;";
+ (document.body || document.documentElement).appendChild(el);
+ }
+ el.textContent = msg;
+ el.style.display = "block";
+ clearTimeout(glassToast._t);
+ glassToast._t = setTimeout(() => { el.style.display = "none"; }, 6000);
+ } catch (err) {}
+ }
 
   function uuid4() {
     try { return crypto.randomUUID(); } catch (e) {}
@@ -1753,6 +1775,91 @@
     } catch (e) { return null; }
   }
 
+   const routedSidecar = {};
+   const sidecarSeeded = new Set();
+   async function seedSidecar(aid) {
+     if (!aid || sidecarSeeded.has(aid)) return;
+     sidecarSeeded.add(aid);
+     try {
+       const r = await fetch(RELAY + "/routed-turns?agentId=" + encodeURIComponent(aid), { cache: "no-store" });
+       if (r.ok) {
+         const d = await r.json();
+         if (Array.isArray(d.entries) && d.entries.length) routedSidecar[aid] = d.entries;
+       }
+     } catch (e) {}
+   }
+   async function logRoutedTurn(aid, entries) {
+     if (!aid || !entries || !entries.length) return;
+     const cur = routedSidecar[aid] || (routedSidecar[aid] = []);
+     const have = new Set(cur.map(e => e && e.id));
+     for (const e of entries) if (e && e.id && !have.has(e.id)) { cur.push(e); have.add(e.id); }
+     cur.sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+     try {
+       await fetch(RELAY + "/log-turn", {
+         method: "POST", headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ agentId: aid, entries })
+       });
+     } catch (e) {}
+   }
+   function installReplicaGuard() {
+     try {
+       const p = window.desktop && window.desktop.agent && window.desktop.agent.clientPersistence;
+       if (!p || p.__gbGuarded) return;
+       const rawWrite = p.write.bind(p);
+       p.__gbGuarded = true;
+       p.write = async function (key, val) {
+         const out = await rawWrite(key, val);
+         try {
+           const ks = String(key || "");
+           const i = ks.indexOf("transcript.replicas.");
+           const aid = i >= 0 ? ks.slice(i + "transcript.replicas.".length) : null;
+           const want = aid && routedSidecar[aid];
+           if (want && want.length && !p.__gbMerging) {
+             p.__gbMerging = true;
+             try {
+               const doc = JSON.parse(await p.read(key));
+               const cur = doc.value.entries;
+               const have = new Set(cur.map(e => e && e.id));
+               const missing = want.filter(e => e && e.id && !have.has(e.id));
+               if (missing.length) {
+                 doc.value.entries = cur.concat(missing).sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+                 await rawWrite(key, JSON.stringify(doc));
+               }
+             } finally { p.__gbMerging = false; }
+           }
+         } catch (e) {}
+         return out;
+       };
+     } catch (e) {}
+   }
+   window.__gbDrift = window.__gbDrift || { runs: 0, merged: 0 };
+   async function driftCheck() {
+     try {
+       const aid = resolveActiveAgentId();
+       const want = aid && routedSidecar[aid];
+       if (!want || !want.length) return;
+       window.__gbDrift.runs++;
+       const p = window.desktop && window.desktop.agent && window.desktop.agent.clientPersistence;
+       if (!p || driftCheck._busy) return;
+       const keys = await p.listKeys("");
+       const rk = keys.find(k => String(k).indexOf("transcript.replicas." + aid) >= 0);
+       if (!rk) return;
+       const doc = JSON.parse(await p.read(rk));
+       const cur = doc.value.entries;
+       const wantIds = new Set(want.map(e => e && e.id));
+       if (cur.some(e => e && e.isStreaming && !wantIds.has(e.id))) return;
+       const have = new Set(cur.map(e => e && e.id));
+       const missing = want.filter(e => e && e.id && !have.has(e.id));
+       if (missing.length) {
+         driftCheck._busy = true;
+         try {
+           doc.value.entries = cur.concat(missing).sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+           await p.write(rk, JSON.stringify(doc));
+           window.__gbDrift.merged += missing.length;
+         } finally { driftCheck._busy = false; }
+       }
+     } catch (e) {}
+   }
   async function glassRoutedTurn(text) {
     const started = Date.now();
     let firstTokenAt = 0;
@@ -1816,7 +1923,7 @@
           stream: true
         }, effortBody(bound.provider, eff)))
       });
-      if (!res.ok || !res.body) { await uncommit(); return false; }
+ if (!res.ok || !res.body) { glassLastError = "hop HTTP " + (res ? res.status : "noresponse"); await uncommit(); return false; }
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let acc = "", buf = "", lastWrite = 0;
@@ -1870,11 +1977,14 @@
           })
         });
       } catch (err) {}
+       await logRoutedTurn(aid, [userEntry, replyEntry]);
+       driftCheck();
       render(true);
       return true;
     } catch (e) {
-      try { await uncommit(); } catch (err) {}
-      return false;
+ try { await uncommit(); } catch (err) {}
+ glassLastError = "hop error: " + ((e && e.message) || e);
+ return false;
     }
   }
 
@@ -1907,17 +2017,18 @@
       e.stopPropagation();
       if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       clearComposer(field);
-      glassRoutedTurn(text).then((ok) => {
-        if (ok) return;
-        try {
-          field.focus();
-          document.execCommand("insertText", false, text);
-          glassInterceptArmed = false;
-          field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
-        } finally {
-          setTimeout(() => { glassInterceptArmed = true; }, 1000);
-        }
-      });
+ glassRoutedTurn(text).then((ok) => {
+ if (ok) return;
+ try {
+ glassInterceptArmed = false; // next Enter goes native - never synthetic
+ field.focus();
+ document.execCommand("insertText", false, text);
+ field.dispatchEvent(new InputEvent("input", { bubbles: true }));
+ glassToast("hop failed (" + (glassLastError || "unknown") + ") - message restored, Enter again for native reply");
+ } finally {
+ setTimeout(() => { glassInterceptArmed = true; }, 8000);
+ }
+ });
     } catch (err) {}
   }, true);
 
@@ -1946,5 +2057,9 @@
 
   render(true);
   poll();
+   if (typeof setInterval === "function") { setInterval(driftCheck, 2000); }
+   setTimeout(() => { try { for (const sid of Object.keys(bindings)) { const sb = bindings[sid]; if (sb && sb.modelId && sb.hopBaseUrl) seedSidecar(sid); } } catch (e) {} }, 2000);
+   document.addEventListener("visibilitychange", () => { try { if (!document.hidden) driftCheck(); } catch (e) {} });
+   window.addEventListener("focus", () => { try { driftCheck(); } catch (e) {} });
   console.log("[LiquidGlass] High-performance glass dropdown model picker loaded!");
 })();
