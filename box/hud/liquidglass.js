@@ -854,32 +854,46 @@
     const aid = resolveActiveAgentId();
     if (!aid) return;
     const name = displayName || (bindings[aid] && bindings[aid].name) || "Bot";
+    const prev = bindings[aid] ? Object.assign({}, bindings[aid]) : null;
 
     if (!bindings[aid]) bindings[aid] = {};
+    if (newModelId) bindings[aid].modelId = newModelId;
     if (displayName) bindings[aid].name = displayName;
-    if (newHopUrl) bindings[aid].hopBaseUrl = newHopUrl;
+    // keep the agent's current hop when the picked row has none; the old
+    // :18786 fallback silently rerouted agents to a hop that may not exist
+    const hop = newHopUrl || bindings[aid].hopBaseUrl || null;
+    if (hop) bindings[aid].hopBaseUrl = hop;
     if (provider) bindings[aid].provider = provider;
     const params = parameters || bindings[aid].parameters || null;
     if (params) bindings[aid].parameters = params;
     showModelDropdown = false;
     render(true);
 
+    const revert = (why) => {
+      if (prev) bindings[aid] = prev; else delete bindings[aid];
+      render(true);
+      showGbToast("Model not saved: " + why);
+      console.warn("[LiquidGlass] binding not saved:", why);
+    };
+    if (!newModelId || !hop) { revert("no model/hop"); return; }
     try {
-      await fetch(RELAY + "/update-binding", {
+      const res = await fetch(RELAY + "/update-binding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agentId: aid,
           name: name,
           modelId: newModelId,
-          hopBaseUrl: newHopUrl || "http://127.0.0.1:18786/v1",
-          provider: provider || "custom",
+          hopBaseUrl: hop,
+          provider: provider || bindings[aid].provider || "custom",
           parameters: params
         })
       });
-      console.log(`[LiquidGlass] Model successfully bound to ${newModelId} for ${name}`);
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || out.ok !== true) { revert(out.error || ("relay HTTP " + res.status)); return; }
+      console.log(`[LiquidGlass] Model bound to ${newModelId} for ${name}`);
     } catch (e) {
-      console.warn("[LiquidGlass] Error saving model binding:", e);
+      revert("relay unreachable");
     }
   }
 
@@ -1017,7 +1031,11 @@
           `;
         });
         const staticIds = new Set(MODEL_CATALOG.map(c => c.id));
-        const upstream = upstreamCatalogByHop[hopOfBinding(cur.hopRoute)] || [];
+        // same key as the fetch: the agent's bound hop. cur.hopRoute is the
+        // literal "app-native-transcript" once a native reply exists, which
+        // made every live /v1/models row invisible.
+        const boundHop = (bindings[cur.agentId] && bindings[cur.agentId].hopBaseUrl) || cur.hopRoute;
+        const upstream = upstreamCatalogByHop[hopOfBinding(boundHop)] || [];
         upstream.filter(u => !staticIds.has(u.id) && (u.label.toLowerCase().includes(filter) || u.id.toLowerCase().includes(filter))).forEach(u => {
           const isActive = (u.id === cur.modelId);
           optionsList += `
@@ -1657,6 +1675,7 @@
       const resB = await fetch(RELAY + "/pull/model-bindings.json", { cache: "no-store" });
       if (resB.ok) {
         const data = await resB.json();
+        const beforeKey = JSON.stringify(bindings[resolveActiveAgentId()] || null);
         if (data && data.agents) {
           Object.assign(bindings, data.agents);
         }
@@ -1674,6 +1693,13 @@
        }
        installReplicaGuard();
        if ((poll._n = (poll._n || 0) + 1) % 40 === 0) driftCheck();
+       // A binding change from the relay (picker, other window, another HUD
+       // click) must re-render the pill: render() short-circuits on stateKey,
+       // and updateLiveMetricValues() never touches the model label.
+       if (JSON.stringify(bindings[resolveActiveAgentId()] || null) !== beforeKey) {
+         try { render(true); } catch (e) {}
+       }
+       window.__gbDebugBindings = () => JSON.parse(JSON.stringify(bindings));
       }
     } catch (e) {}
 

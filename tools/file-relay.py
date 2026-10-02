@@ -22,11 +22,61 @@ Security notes:
   - No auth: it is a convenience for pushing files when you have a shell but
     no scp. It is NOT the binding consumer — see docs/CLOUD-HOST.md.
 """
-import argparse, os, re, sys
+import argparse, json, os, re, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse
 
 SAFE = re.compile(r"^[A-Za-z0-9._-]+$")
 MAX_BODY = 64 * 1024 * 1024  # 64 MiB
+BINDINGS = "model-bindings.json"
+METRICS = "live-metrics.jsonl"
+# The in-app HUD page is a file:// document; Chromium sends Origin "null" (or
+# "file://"). Any other Origin is a web page and must not rebind agents.
+APP_ORIGINS = {"null", "file://"}
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _write_atomic(path, data):
+    """Write through symlinks: the relay dir may link to the app's real
+    bindings file; replacing the link itself would silently fork them."""
+    real = os.path.realpath(path)
+    tmp = real + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, real)
+
+
+def apply_binding_update(path, update):
+    """Merge one HUD model selection into model-bindings.json.
+
+    Only whitelisted fields are copied (never credentials); hopBaseUrl must
+    be loopback http. Returns the stored agent entry."""
+    aid = update.get("agentId")
+    model = update.get("modelId")
+    hop = update.get("hopBaseUrl")
+    if not isinstance(aid, str) or not SAFE.match(aid):
+        raise ValueError("bad agentId")
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("bad modelId")
+    u = urlparse(hop) if isinstance(hop, str) else None
+    if not u or u.scheme != "http" or u.hostname not in LOOPBACK_HOSTS:
+        raise ValueError("hopBaseUrl must be loopback http")
+    try:
+        with open(path, "rb") as f:
+            doc = json.load(f)
+    except FileNotFoundError:
+        doc = {}
+    agents = doc.setdefault("agents", {})
+    entry = agents.setdefault(aid, {})
+    entry["modelId"] = model.strip()
+    entry["hopBaseUrl"] = hop
+    for key in ("name", "provider"):
+        if isinstance(update.get(key), str) and update[key].strip():
+            entry[key] = update[key].strip()
+    if isinstance(update.get("parameters"), list):
+        entry["parameters"] = update["parameters"]
+    _write_atomic(path, (json.dumps(doc, indent=2) + "\n").encode())
+    return entry
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -38,11 +88,57 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send(self, code, body=b"", ctype="text/plain"):
         self.send_response(code)
+        origin = self.headers.get("Origin")
+        if origin in APP_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         if body:
             self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        self._send(204 if self.headers.get("Origin") in APP_ORIGINS else 403)
+
+    def _read_body(self):
+        """Always consume the declared body before replying. HTTP/1.1
+        keep-alive: an unread body is parsed as the NEXT request line (the
+        HUD then sees 501 "Unsupported method ('{...}GET')" on its polls)."""
+        length = int(self.headers.get("Content-Length") or 0)
+        if length > MAX_BODY:
+            self.close_connection = True
+            return None
+        return self.rfile.read(length) if length else b""
+
+    def _app_origin_ok(self):
+        origin = self.headers.get("Origin")
+        return origin is None or origin in APP_ORIGINS
+
+    def _update_binding(self, raw):
+        try:
+            update = json.loads(raw or b"{}")
+            entry = apply_binding_update(os.path.join(RELAY_DIR, BINDINGS), update)
+        except (ValueError, TypeError, AttributeError) as e:
+            self._send(400, json.dumps({"error": str(e)}).encode(), "application/json")
+            return
+        body = json.dumps({"ok": True, "agentId": update["agentId"], "binding": entry})
+        self._send(200, body.encode(), "application/json")
+
+    def _append_metrics(self, raw):
+        """One JSON object per call → one line in live-metrics.jsonl (the file
+        the HUD polls via /pull/live-metrics.jsonl)."""
+        try:
+            row = json.loads(raw or b"{}")
+            if not isinstance(row, dict):
+                raise ValueError("metrics row must be an object")
+        except ValueError as e:
+            self._send(400, json.dumps({"error": str(e)}).encode(), "application/json")
+            return
+        with open(os.path.join(RELAY_DIR, METRICS), "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, separators=(",", ":")) + "\n")
+        self._send(200, b'{"ok":true}', "application/json")
 
     def _name(self):
         # strip leading /push/ or /pull/
@@ -52,6 +148,19 @@ class Handler(BaseHTTPRequestHandler):
         return parts[1]
 
     def do_POST(self):
+        raw = self._read_body()
+        if raw is None:
+            self._send(413, b'{"error":"body too large"}', "application/json")
+            return
+        if self.path in ("/update-binding", "/append-metrics"):
+            if not self._app_origin_ok():
+                self._send(403, b'{"error":"origin not allowed"}', "application/json")
+                return
+            if self.path == "/update-binding":
+                self._update_binding(raw)
+            else:
+                self._append_metrics(raw)
+            return
         if not self.path.startswith("/push/"):
             self._send(404, b'{"error":"not found"}', "application/json")
             return
@@ -59,17 +168,8 @@ class Handler(BaseHTTPRequestHandler):
         if not name:
             self._send(400, b'{"error":"bad name"}', "application/json")
             return
-        length = int(self.headers.get("Content-Length") or 0)
-        if length > MAX_BODY:
-            self._send(413, b'{"error":"body too large"}', "application/json")
-            return
-        body = self.rfile.read(length) if length else b""
-        dest = os.path.join(RELAY_DIR, name)
-        tmp = dest + ".tmp"
-        with open(tmp, "wb") as f:
-            f.write(body)
-        os.replace(tmp, dest)
-        self._send(200, b'{"ok":true,"name":"%s","bytes":%d}' % (name.encode(), len(body)), "application/json")
+        _write_atomic(os.path.join(RELAY_DIR, name), raw)
+        self._send(200, b'{"ok":true,"name":"%s","bytes":%d}' % (name.encode(), len(raw)), "application/json")
 
     def do_GET(self):
         if self.path == "/health":
